@@ -1,0 +1,47 @@
+1. About Our Organization
+
+“Our clinic provides accessible mental-health support for individuals experiencing stress, anxiety, emotional overwhelm, or life challenges. Our services are designed to complement—not replace—professional medical care. All assessments are reviewed by trained human staff before decisions are made.”
+
+2. Services We Offer
+
+a. Initial Screening
+“We offer a short online screening designed to help us understand your current emotional state. This screening is not a diagnosis. It helps our team determine the most suitable support pathway for you.”
+
+b. One-on-One Sessions
+“We provide scheduled mental health sessions with trained professionals. Appointments typically last 30–45 minutes and can take place online or in person depending on availability.”
+
+c. Follow-Up Check-Ins
+“While waiting for an appointment, clients may receive brief check-in messages or calls. These check-ins help us ensure your well-being and allow our team to prioritize support when needed.”
+
+d. Community Support Resources
+“We offer free resources—including stress-management guides, breathing exercises, and information on wellness habits—to help clients maintain emotional balance between sessions.”
+
+3. Appointment Scheduling
+
+“After completing the online screening, clients are added to the appointment queue. A team member reviews the screening and assigns a suitable session time. If a client’s responses indicate increased emotional strain during follow-up checks, our team may move them earlier in the queue.”
+
+4. Confidentiality
+
+“We take privacy seriously. All personal information, chat records, and follow-up responses are stored securely and reviewed only by authorized members of our mental-health team. We do not share client data with third parties.”
+
+5. Emergency Guidance (Non-Clinical)
+
+“Our center does not provide emergency services.
+If you are in immediate danger or experiencing a crisis, please contact local emergency numbers, a nearby hospital, or a trusted adult immediately. Our automated system cannot respond to emergencies.”
+
+6. Frequently Asked Questions
+
+-What does the initial screening involve?
+A short set of questions about how you’ve been feeling emotionally. It helps us understand the support you may need.
+
+-Is the chatbot giving medical advice?
+No. The chatbot only gathers information and provides general guidance about our services. A human reviews your information.
+
+-Why am I receiving follow-up calls or messages?
+These check-ins help us understand whether your emotional state has changed while waiting for an appointment.
+
+-Can I reschedule my appointment?
+Yes. Contact our support team or respond “reschedule” and a staff member will assist you.
+
+-Who sees my information?
+Only our trained support team.
