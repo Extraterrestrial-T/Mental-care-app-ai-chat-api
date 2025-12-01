@@ -35,9 +35,9 @@ DB_URI = os.getenv("REDIS_URL", None)
 model = init_chat_model("google_genai:gemini-2.5-flash") 
 
 # --- RAG SETUP ---
-PROJECT_ROOT = Path(__file__).parent.parent.parent  # Goes up to /app
-corpus_path = PROJECT_ROOT / "corpus.txt"
-FILE_PATH = str(corpus_path)
+PROJECT_ROOT = Path(__file__).parent  # Goes up to /agent
+FILE_PATH= os.path.join(PROJECT_ROOT, "corpus.txt")
+
 loader = TextLoader(file_path=FILE_PATH, encoding="utf-8")
 docs = loader.load()
 
