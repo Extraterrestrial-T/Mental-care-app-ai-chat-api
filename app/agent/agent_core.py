@@ -16,7 +16,7 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_huggingface.embeddings import HuggingFaceEmbeddings
 from langchain_community.docstore.in_memory import InMemoryDocstore
 from langchain_community.vectorstores import FAISS
-
+from pathlib import Path
 # --- ASYNC REDIS IMPORTS ---
 
 from langgraph.checkpoint.redis.aio import AsyncRedisSaver 
@@ -35,7 +35,9 @@ DB_URI = os.getenv("REDIS_URL", None)
 model = init_chat_model("google_genai:gemini-2.5-flash") 
 
 # --- RAG SETUP ---
-FILE_PATH = "corpus.txt"
+PROJECT_ROOT = Path(__file__).parent.parent.parent  # Goes up to /app
+corpus_path = PROJECT_ROOT / "corpus.txt"
+FILE_PATH = str(corpus_path)
 loader = TextLoader(file_path=FILE_PATH, encoding="utf-8")
 docs = loader.load()
 
