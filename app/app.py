@@ -40,21 +40,20 @@ app.add_middleware(
 )
 #
 # --- Static File Serving ---
-# Mount the static directory to serve index.html, JS, CSS, etc.
-# Note: Render often needs this folder to be relative to the deployment root.
 
-BASE_DIR = Path(__file__).parent.parent  # Goes up to /app
-STATIC_DIR = BASE_DIR / "static"
+current_dir = os.path.dirname(os.path.abspath(__file__)) 
+# Construct the absolute path to the static folder
+static_files_dir = os.path.join(current_dir, "static")
+print(f"Static files directory: {static_files_dir}")
 
-app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
-
+app.mount("/static", StaticFiles(directory=static_files_dir), name="static")
 
 # Serve the index.html content at the root URL (/)
 @app.get("/", response_class=HTMLResponse)
 async def get_index():
     """Serves the chat client HTML page."""
     try:
-        with open(os.path.join("static", "index.html"), "r") as f:
+        with open(os.path.join(static_files_dir, "index.html"), "r") as f:
             return HTMLResponse(content=f.read())
     except FileNotFoundError:
         return HTMLResponse(content="<h1>Chat Client HTML Not Found!</h1>", status_code=404)
