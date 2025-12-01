@@ -1,4 +1,5 @@
 import os
+from pathlib import Path
 from fastapi.responses import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi import FastAPI, WebSocket, Request, WebSocketDisconnect
@@ -41,7 +42,12 @@ app.add_middleware(
 # --- Static File Serving ---
 # Mount the static directory to serve index.html, JS, CSS, etc.
 # Note: Render often needs this folder to be relative to the deployment root.
-app.mount("/static", StaticFiles(directory="static"), name="static")
+
+BASE_DIR = Path(__file__).parent.parent  # Goes up to /app
+STATIC_DIR = BASE_DIR / "static"
+
+app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
+
 
 # Serve the index.html content at the root URL (/)
 @app.get("/", response_class=HTMLResponse)
