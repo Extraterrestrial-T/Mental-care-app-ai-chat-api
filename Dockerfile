@@ -16,4 +16,4 @@ ENV PYTHONUNBUFFERED=1 \
     PORT=8000
 
 # ---------- RUN ----------
-CMD ["uvicorn", "app.app:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4", "--ws-ping-interval", "10", "--ws-ping-timeout", "60"]
+CMD ["uvicorn", "app.app:app", "--host", "0.0.0.0", "--port", "8000", "--ws-ping-interval", "10", "--ws-ping-timeout", "60"]
