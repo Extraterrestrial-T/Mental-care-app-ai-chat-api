@@ -1,6 +1,6 @@
 # Use the official Python 3.13 image as the base
 FROM python:3.13.9-slim
-RUN sudo install ngnix
+
 # Set the working directory inside the container
 WORKDIR /app
 
