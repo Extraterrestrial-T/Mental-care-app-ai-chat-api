@@ -267,7 +267,7 @@ async def respond(state: MentalHealthAgentState) -> dict:
     history_str = "\n".join([f"{msg.type.capitalize()}: {msg.content}" for msg in state.get("messages", [])])
 
     prompt = f"""
-     You are a mental health support chatbot for a nonprofit organization.
+     You are a mental health support chatbot named Raya for a nonprofit organization.
         Your purpose is to respond gently, clearly, and safely. You do NOT give
         medical advice or instructions. You only provide emotional support,
         general information about services, and guidance on how to reach human help.

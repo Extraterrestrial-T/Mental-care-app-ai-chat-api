@@ -3,270 +3,213 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mental Health Agent Chat</title>
-    <!-- Load Tailwind CSS -->
+    <title>Raya | Compassionate Support</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
     <style>
-        /* Custom styles for chat bubbles and scroll behavior */
+        body { font-family: 'Inter', sans-serif; }
+        
         #chat-output {
-            height: 70vh;
+            height: 65vh;
             overflow-y: auto;
-            scroll-behavior: smooth;
+            scrollbar-width: thin;
+            scrollbar-color: #e5e7eb transparent;
         }
+        #chat-output::-webkit-scrollbar { width: 4px; }
+        #chat-output::-webkit-scrollbar-thumb { background: #e5e7eb; border-radius: 10px; }
+
         .user-bubble {
-            background-color: #6366f1; /* Indigo-500 */
+            background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
             color: white;
-            border-radius: 1rem 1rem 0 1rem;
-            align-self: flex-end;
+            border-radius: 1.25rem 1.25rem 0.25rem 1.25rem;
+            box-shadow: 0 4px 15px rgba(99, 102, 241, 0.2);
         }
+        
         .ai-bubble {
-            background-color: #e5e7eb; /* Gray-200 */
-            color: #1f2937; /* Gray-800 */
-            border-radius: 1rem 1rem 1rem 0;
-            align-self: flex-start;
+            background-color: #f3f4f6;
+            color: #1f2937;
+            border-radius: 1.25rem 1.25rem 1.25rem 0.25rem;
         }
+
+        .typing-dot {
+            width: 4px;
+            height: 4px;
+            background: #6366f1;
+            border-radius: 50%;
+            display: inline-block;
+            animation: bounce 1.4s infinite ease-in-out both;
+        }
+        .typing-dot:nth-child(1) { animation-delay: -0.32s; }
+        .typing-dot:nth-child(2) { animation-delay: -0.16s; }
+
+        @keyframes bounce {
+            0%, 80%, 100% { transform: scale(0); }
+            40% { transform: scale(1.0); }
+        }
+
+        .fade-in { animation: fadeIn 0.3s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
-<body class="bg-gray-100 font-sans h-screen flex flex-col items-center justify-center p-4">
+<body class="bg-slate-50 h-screen flex flex-col items-center justify-center p-4">
 
-    <!-- Chat Container -->
-    <div class="w-full max-w-lg bg-white shadow-xl rounded-xl flex flex-col h-[90vh]">
+    <div class="w-full max-w-lg bg-white shadow-2xl rounded-3xl overflow-hidden flex flex-col h-[90vh] border border-slate-100">
         
-        <!-- Header -->
-        <header class="p-4 border-b bg-indigo-600 text-white rounded-t-xl">
-            <h1 class="text-xl font-bold">Compassionate Chat Agent</h1>
-            <p id="status" class="text-sm font-light"></p>
+        <!-- Premium Header -->
+        <header class="px-6 py-5 bg-white border-b border-slate-100 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center">
+                    <span class="text-indigo-600 font-semibold text-lg">R</span>
+                </div>
+                <div>
+                    <h1 class="text-lg font-semibold text-slate-800 leading-tight">Raya</h1>
+                    <div class="flex items-center space-x-1.5">
+                        <div id="online-indicator" class="w-2 h-2 bg-slate-300 rounded-full"></div>
+                        <span id="connection-text" class="text-xs text-slate-400 font-medium">Connecting...</span>
+                    </div>
+                </div>
+            </div>
         </header>
 
-        <!-- Chat Output Area -->
-        <main id="chat-output" class="flex-grow p-4 space-y-4">
-            <!-- Messages will be appended here -->
-            <div class="ai-bubble max-w-[80%] p-3 shadow-md">
-                Hello! I'm here to provide support and information about our services. How can I help you today?
+        <!-- Messages Area -->
+        <main id="chat-output" class="flex-grow p-6 space-y-6 bg-white">
+            <div class="ai-bubble max-w-[85%] p-4 shadow-sm text-sm leading-relaxed fade-in">
+                Hi there. I'm Raya, your support assistant. How are you feeling today?
             </div>
         </main>
 
-        <!-- Input and Control Area -->
-        <footer class="p-4 border-t">
-            <div id="loading-indicator" class="hidden text-center py-2 text-indigo-500">
-                <svg class="animate-spin h-5 w-5 mr-3 inline text-indigo-500" viewBox="0 0 24 24">
-                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                Agent is typing...
+        <!-- Action/Footer Area -->
+        <footer class="p-6 bg-white border-t border-slate-50">
+            <!-- Typing Indicator -->
+            <div id="loading-indicator" class="hidden mb-4 ml-2 fade-in">
+                <div class="flex items-center space-x-1">
+                    <span class="text-xs text-slate-400 mr-1 italic">Raya is thinking</span>
+                    <div class="typing-dot"></div>
+                    <div class="typing-dot"></div>
+                    <div class="typing-dot"></div>
+                </div>
             </div>
             
-            <!-- Hidden Interrupt/Resume Input -->
-            <div id="interrupt-area" class="hidden p-3 mb-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                <p class="text-sm font-medium text-yellow-800 mb-2">
-                    <span id="interrupt-request"></span>
-                </p>
+            <!-- Interrupt Form -->
+            <div id="interrupt-area" class="hidden p-4 mb-4 bg-indigo-50 rounded-2xl border border-indigo-100 fade-in">
+                <p class="text-xs font-semibold text-indigo-700 uppercase tracking-wider mb-2">Required Information</p>
+                <p class="text-sm text-indigo-900 mb-3" id="interrupt-request"></p>
                 <div class="flex space-x-2">
-                    <input type="text" id="interrupt-input" placeholder="Enter required information..." 
-                           class="flex-grow p-2 border border-gray-300 rounded-lg focus:ring-yellow-500 focus:border-yellow-500">
-                    <button id="interrupt-submit" onclick="handleResume()" 
-                            class="px-4 py-2 bg-yellow-500 text-white font-semibold rounded-lg hover:bg-yellow-600 transition duration-150 disabled:opacity-50">
+                    <input type="text" id="interrupt-input" 
+                           class="flex-grow p-2.5 bg-white border border-indigo-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    <button onclick="handleResume()" 
+                            class="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-xl hover:bg-indigo-700 transition shadow-sm">
                         Submit
                     </button>
                 </div>
             </div>
 
-            <!-- Main Chat Input -->
-            <div id="main-input-area" class="flex space-x-3">
-                <input type="text" id="user-input" placeholder="Type your message..." 
-                       class="flex-grow p-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500"
+            <!-- Input Bar -->
+            <div id="main-input-area" class="flex items-center space-x-2 bg-slate-100 p-1.5 rounded-2xl">
+                <input type="text" id="user-input" placeholder="Message Raya..." 
+                       class="flex-grow bg-transparent p-3 text-sm focus:outline-none"
                        onkeydown="if(event.key === 'Enter') sendMessage()">
                 <button id="send-button" onclick="sendMessage()" 
-                        class="px-4 py-3 bg-indigo-600 text-white font-semibold rounded-lg hover:bg-indigo-700 transition duration-150 disabled:opacity-50">
-                    Send
+                        class="p-3 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition shadow-lg disabled:opacity-50 disabled:shadow-none">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path d="M10.894 2.553a1 1 0 00-1.788 0l-7 14a1 1 0 001.169 1.409l5-1.429A1 1 0 009 15.571V11a1 1 0 112 0v4.571a1 1 0 00.725.962l5 1.428a1 1 0 001.17-1.408l-7-14z" />
+                    </svg>
                 </button>
             </div>
         </footer>
     </div>
 
     <script>
-        // --- CRUCIAL FIX: Robust Dynamic WebSocket URL ---
-        // Ensure that if the page is loaded securely (HTTPS), the WebSocket protocol is WSS.
         const isSecure = window.location.protocol.startsWith('https');
         const protocol = isSecure ? 'wss' : 'ws';
-        const host = window.location.host;
-        const WS_URL = `${protocol}://${host}/ws/chat`; 
-        
-        // The rest of the script is unchanged logic, but included for completeness:
+        const WS_URL = `${protocol}://${window.location.host}/ws/chat`; 
         
         const chatOutput = document.getElementById('chat-output');
         const userInput = document.getElementById('user-input');
         const sendButton = document.getElementById('send-button');
-        const statusElement = document.getElementById('status');
+        const onlineIndicator = document.getElementById('online-indicator');
+        const connectionText = document.getElementById('connection-text');
         const loadingIndicator = document.getElementById('loading-indicator');
         const interruptArea = document.getElementById('interrupt-area');
         const interruptRequest = document.getElementById('interrupt-request');
         const interruptInput = document.getElementById('interrupt-input');
-        const interruptSubmit = document.getElementById('interrupt-submit');
         
         let ws = null;
-        let sessionId = null;
         let waitingForResume = false;
         let requiredFieldType = null;
 
-        // --- Utility Functions ---
+        function scrollToBottom() { chatOutput.scrollTop = chatOutput.scrollHeight; }
 
-        function scrollToBottom() {
-            chatOutput.scrollTop = chatOutput.scrollHeight;
-        }
-
-        function disableInput(reason = "") {
-            userInput.disabled = true;
-            sendButton.disabled = true;
-            statusElement.textContent = reason;
-        }
-
-        function enableInput(statusText = "Ready") {
-            userInput.disabled = false;
-            sendButton.disabled = false;
-            userInput.focus();
-            statusElement.textContent = statusText;
-        }
-
-        function showLoading() {
-            loadingIndicator.classList.remove('hidden');
-            disableInput("Agent is processing...");
-        }
-
-        function hideLoading() {
-            loadingIndicator.classList.add('hidden');
-            if (!waitingForResume) {
-                enableInput("Ready");
+        function setStatus(connected) {
+            if (connected) {
+                onlineIndicator.classList.replace('bg-slate-300', 'bg-emerald-500');
+                connectionText.textContent = "Online";
+                connectionText.classList.replace('text-slate-400', 'text-emerald-500');
+            } else {
+                onlineIndicator.classList.replace('bg-emerald-500', 'bg-slate-300');
+                connectionText.textContent = "Reconnecting...";
+                connectionText.classList.replace('text-emerald-500', 'text-slate-400');
             }
         }
 
         function appendMessage(content, sender) {
             const container = document.createElement('div');
-            container.className = `flex ${sender === 'user' ? 'justify-end' : 'justify-start'}`;
-
+            container.className = `flex ${sender === 'user' ? 'justify-end' : 'justify-start'} fade-in`;
             const bubble = document.createElement('div');
-            bubble.className = `max-w-[80%] p-3 shadow-md ${sender === 'user' ? 'user-bubble' : 'ai-bubble'}`;
-            
+            bubble.className = `max-w-[85%] p-4 text-sm leading-relaxed ${sender === 'user' ? 'user-bubble' : 'ai-bubble'}`;
             bubble.innerHTML = content.replace(/\n/g, '<br>');
-
             container.appendChild(bubble);
             chatOutput.appendChild(container);
             scrollToBottom();
         }
 
-        // --- WebSocket Connection ---
-
         function connectWebSocket() {
-            if (ws) {
-                ws.close();
-            }
-            disableInput("Connecting...");
-            
+            if (ws) ws.close();
             ws = new WebSocket(WS_URL);
-
-            ws.onopen = () => {
-                console.log("WebSocket connected.");
-                enableInput("Connected");
-            };
-
+            ws.onopen = () => setStatus(true);
             ws.onmessage = (event) => {
                 const data = JSON.parse(event.data);
-                
-                if (data.type === 'session_id') {
-                    sessionId = data.id;
-                    statusElement.textContent = `Session ID: ${sessionId}`;
-                    console.log(`Received Session ID: ${sessionId}`);
-
-                } else if (data.type === 'response') {
+                if (data.type === 'response') {
                     appendMessage(data.text, 'ai');
-                    hideLoading();
-
+                    loadingIndicator.classList.add('hidden');
                 } else if (data.type === 'interrupt') {
-                    handleInterrupt(data);
-
+                    loadingIndicator.classList.add('hidden');
+                    requiredFieldType = data.field;
+                    waitingForResume = true;
+                    interruptRequest.textContent = data.request;
+                    interruptArea.classList.remove('hidden');
+                    interruptInput.focus();
                 } else if (data.type === 'end') {
-                    hideLoading();
-                    statusElement.textContent = "Conversation ended.";
-                    
-                } else {
-                    console.warn("Unknown message type:", data.type, data);
+                    loadingIndicator.classList.add('hidden');
                 }
             };
-
-            ws.onclose = (event) => {
-                console.log("WebSocket closed. Attempting to reconnect in 3s...", event.code, event.reason);
-                disableInput("Disconnected. Reconnecting...");
-                setTimeout(connectWebSocket, 3000); 
+            ws.onclose = () => {
+                setStatus(false);
+                setTimeout(connectWebSocket, 3000);
             };
-
-            ws.onerror = (error) => {
-                console.error("WebSocket error:", error);
-                ws.close();
-            };
-        }
-
-        // --- Interrupt/Resume Logic ---
-
-        function handleInterrupt(data) {
-            hideLoading(); 
-            
-            requiredFieldType = data.field;
-            waitingForResume = true;
-            
-            interruptRequest.textContent = data.request;
-            interruptArea.classList.remove('hidden');
-            
-            disableInput("Waiting for required information.");
-            interruptInput.focus();
         }
 
         function handleResume() {
-            const resumeValue = interruptInput.value.trim();
-            if (!resumeValue) {
-                console.log("Please provide the requested information."); // Using console instead of alert
-                return;
-            }
-
-            const resumeCommand = {
-                type: "resume",
-                resume_value: { [requiredFieldType]: resumeValue },
-            };
-            ws.send(JSON.stringify(resumeCommand));
-
-            appendMessage(`[Provided ${requiredFieldType}]: ${resumeValue}`, 'user');
-            
+            const val = interruptInput.value.trim();
+            if (!val) return;
+            ws.send(JSON.stringify({ type: "resume", resume_value: { [requiredFieldType]: val } }));
+            appendMessage(val, 'user');
             interruptInput.value = '';
             interruptArea.classList.add('hidden');
             waitingForResume = false;
-            requiredFieldType = null;
-            
-            showLoading(); 
+            loadingIndicator.classList.remove('hidden');
         }
-
-
-        // --- Message Sending ---
 
         function sendMessage() {
-            if (waitingForResume) {
-                handleResume();
-                return;
-            }
-
-            const message = userInput.value.trim();
-            if (!message) return;
-
-            const messagePayload = {
-                query: message
-            };
-            ws.send(JSON.stringify(messagePayload));
-
-            appendMessage(message, 'user');
+            if (waitingForResume) return handleResume();
+            const msg = userInput.value.trim();
+            if (!msg) return;
+            ws.send(JSON.stringify({ query: msg }));
+            appendMessage(msg, 'user');
             userInput.value = '';
-            
-            showLoading();
+            loadingIndicator.classList.remove('hidden');
         }
 
-        // --- Initialization ---
         window.onload = connectWebSocket;
     </script>
 </body>
