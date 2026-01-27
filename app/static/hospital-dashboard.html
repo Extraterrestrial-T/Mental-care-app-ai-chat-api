@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hospital Dashboard - Care Coordinator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
+        .tab-active { background-color: #eef2ff; color: #4f46e5; border-right: 3px solid #4f46e5; }
+        .doctor-card { transition: all 0.2s; cursor: pointer; }
+        .doctor-card:hover { transform: translateY(-2px); box-shadow: 0 8px 16px rgba(0,0,0,0.1); }
+        .doctor-card.selected { border-color: #6366f1; background: #f5f3ff; }
+        .calendar-day { cursor: pointer; transition: all 0.2s; aspect-ratio: 1 / 1; display: flex; align-items: center; justify-content: center; border-radius: 12px; font-size: 0.875rem; position: relative; }
+        .calendar-day:hover { background: #f1f5f9; }
+        .calendar-day.selected { background: #6366f1; color: white; font-weight: 600; }
+        .calendar-day.today { border: 2px solid #6366f1; color: #6366f1; font-weight: 700; }
+        .calendar-day.has-appointments::after { content: ''; position: absolute; bottom: 6px; width: 4px; height: 4px; background: #10b981; border-radius: 50%; }
+    </style>
+</head>
+<body class="bg-slate-50 min-h-screen flex">
+
+    <!-- Sidebar -->
+    <aside class="w-64 bg-white border-r border-slate-200 flex flex-col sticky top-0 h-screen">
+        <div class="p-6 border-b border-slate-100">
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white font-bold">C</div>
+                <div class="flex-1">
+                    <span class="font-bold text-lg tracking-tight block">Care Coordinator</span>
+                    
+                </div>
+            </div>
+        </div>
+        
+        <nav class="flex-1 mt-6 px-4 space-y-2">
+            <a onclick="switchTab('overview')" class="tab-link tab-active flex items-center gap-3 p-3 rounded-xl font-medium transition-all cursor-pointer">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/></svg>
+                Overview
+            </a>
+            <a onclick="switchTab('doctors')" class="tab-link flex items-center gap-3 p-3 rounded-xl font-medium text-slate-500 hover:bg-slate-50 transition-all cursor-pointer">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/></svg>
+                Doctors
+            </a>
+            <a onclick="switchTab('schedule')" class="tab-link flex items-center gap-3 p-3 rounded-xl font-medium text-slate-500 hover:bg-slate-50 transition-all cursor-pointer">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/></svg>
+                Schedule
+            </a>
+        </nav>
+        
+        <div class="p-6 border-t border-slate-100">
+            <button onclick="logout()" class="flex items-center gap-3 text-slate-400 hover:text-red-500 transition-colors font-medium">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/></svg>
+                Sign Out
+            </button>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="flex-grow overflow-y-auto">
+        <div id="loading" class="flex items-center justify-center h-screen">
+            <div class="text-center">
+                <div class="w-12 h-12 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin mx-auto mb-4"></div>
+                <p class="text-slate-400">Loading dashboard...</p>
+            </div>
+        </div>
+
+        <!-- Overview Tab -->
+        <div id="tab-overview" class="hidden p-8">
+            <h2 class="text-2xl font-bold text-slate-800 mb-6">Hospital Overview</h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+                    <p class="text-xs font-bold text-slate-400 uppercase mb-2">Total Doctors</p>
+                    <h3 class="text-3xl font-bold text-slate-800" id="stat-doctors">0</h3>
+                </div>
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+                    <p class="text-xs font-bold text-slate-400 uppercase mb-2">Connected Calendars</p>
+                    <h3 class="text-3xl font-bold text-emerald-600" id="stat-connected">0</h3>
+                </div>
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+                    <p class="text-xs font-bold text-slate-400 uppercase mb-2">Today's Appointments</p>
+                    <h3 class="text-3xl font-bold text-blue-600" id="stat-today">0</h3>
+                </div>
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+                    <p class="text-xs font-bold text-slate-400 uppercase mb-2">Upcoming</p>
+                    <h3 class="text-3xl font-bold text-amber-600" id="stat-upcoming">0</h3>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+                    <h3 class="font-bold text-slate-800 mb-4">Today's Appointments</h3>
+                    <div id="today-appointments" class="space-y-3"></div>
+                </div>
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+                    <h3 class="font-bold text-slate-800 mb-4">Upcoming Appointments</h3>
+                    <div id="upcoming-appointments" class="space-y-3"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Doctors Tab -->
+        <div id="tab-doctors" class="hidden p-8">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-bold text-slate-800">Medical Staff</h2>
+                <button onclick="showAddDoctorModal()" class="px-4 py-2 bg-indigo-600 text-white font-semibold rounded-xl hover:bg-indigo-700 transition">
+                    + Add Doctor
+                </button>
+            </div>
+            
+            <div id="doctors-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8"></div>
+            
+            <div id="doctor-appointments" class="hidden">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-xl font-bold text-slate-800" id="selected-doctor-name"></h3>
+                    <button onclick="clearDoctorSelection()" class="text-sm text-indigo-600 hover:underline">Clear Selection</button>
+                </div>
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden">
+                    <table class="w-full">
+                        <thead class="bg-slate-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-bold text-slate-400 uppercase">Patient</th>
+                                <th class="px-6 py-3 text-left text-xs font-bold text-slate-400 uppercase">Date & Time</th>
+                                <th class="px-6 py-3 text-left text-xs font-bold text-slate-400 uppercase">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="doctor-appointments-list" class="divide-y divide-slate-100"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Schedule Tab -->
+        <div id="tab-schedule" class="hidden p-8">
+            <h2 class="text-2xl font-bold text-slate-800 mb-6">Hospital Schedule</h2>
+            
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div class="lg:col-span-1">
+                    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+                        <div class="flex justify-between items-center mb-4">
+                            <button onclick="previousMonth()" class="p-2 hover:bg-slate-100 rounded-lg">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+                            </button>
+                            <h3 class="font-bold text-slate-800" id="calendar-month-year"></h3>
+                            <button onclick="nextMonth()" class="p-2 hover:bg-slate-100 rounded-lg">
+                                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                            </button>
+                        </div>
+                        <div class="grid grid-cols-7 gap-1 text-center text-xs font-semibold text-slate-400 mb-2">
+                            <div>Su</div><div>Mo</div><div>Tu</div><div>We</div><div>Th</div><div>Fr</div><div>Sa</div>
+                        </div>
+                        <div id="calendar-days" class="grid grid-cols-7 gap-1"></div>
+                    </div>
+                </div>
+                
+                <div class="lg:col-span-2">
+                    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+                        <h3 class="font-bold text-slate-800 mb-4" id="selected-date-title">Select a date</h3>
+                        <div id="day-appointments" class="space-y-3"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Add Doctor Modal -->
+    <div id="add-doctor-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-3xl p-8 max-w-md w-full">
+            <h3 class="text-xl font-bold text-slate-800 mb-4">Invite Doctor</h3>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-slate-400 uppercase mb-2">Hospital ID</label>
+                    <div class="px-4 py-3 bg-slate-50 rounded-xl text-sm font-mono text-indigo-600" id="modal-hospital-id"></div>
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-400 uppercase mb-2">Signup Link</label>
+                    <div class="flex gap-2">
+                        <input type="text" readonly id="doctor-signup-link" class="flex-grow px-4 py-3 bg-slate-50 rounded-xl text-xs font-mono">
+                        <button onclick="copySignupLink()" class="px-4 py-3 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700">
+                            Copy
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <button onclick="closeAddDoctorModal()" class="w-full mt-6 py-3 bg-slate-100 text-slate-600 font-semibold rounded-xl hover:bg-slate-200">
+                Close
+            </button>
+        </div>
+    </div>
+
+    <!-- Appointment Details Modal -->
+    <div id="appointment-modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-3xl p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <h3 class="text-xl font-bold text-slate-800 mb-4">Appointment Details</h3>
+            <div id="appointment-details" class="space-y-4"></div>
+            <button onclick="closeAppointmentModal()" class="w-full mt-6 py-3 bg-slate-100 text-slate-600 font-semibold rounded-xl hover:bg-slate-200">
+                Close
+            </button>
+        </div>
+    </div>
+
+    <script>
+        let hospitalData = {};
+        let allAppointments = [];
+        let currentMonth = new Date().getMonth();
+        let currentYear = new Date().getFullYear();
+        let selectedDate = null;
+        let selectedDoctor = null;
+
+        async function loadDashboard() {
+            try {
+                const response = await fetch('/hospital/api/dashboard', { credentials: 'include' });
+                if (!response.ok) {
+                    if (response.status === 401) window.location.href = '/auth/login';
+                    throw new Error('Failed to load');
+                }
+                
+                hospitalData = await response.json();
+                allAppointments = hospitalData.recent_appointments || [];
+                
+                //document.getElementById('hospital-id').textContent = hospitalData.hospital?.id || hospitalData.hospital_id || '---';
+                
+                updateStats();
+                renderCalendar();
+                
+                document.getElementById('loading').classList.add('hidden');
+                document.getElementById('tab-overview').classList.remove('hidden');
+            } catch (error) {
+                console.error(error);
+                document.getElementById('loading').innerHTML = '<p class="text-red-500">Failed to load. Please <a href="/auth/login" class="underline">login</a> again.</p>';
+            }
+        }
+
+        function updateStats() {
+            const doctors = hospitalData.doctors || [];
+            const connected = doctors.filter(d => d.token && d.refresh_token && d.token_uri).length;
+            
+            const today = new Date().setHours(0,0,0,0);
+            const todayAppts = allAppointments.filter(a => {
+                const aptDate = a.start_time?.seconds ? new Date(a.start_time.seconds * 1000) : new Date(a.start_time);
+                return aptDate.setHours(0,0,0,0) === today;
+            });
+            
+            const upcoming = allAppointments.filter(a => {
+                const aptDate = a.start_time?.seconds ? new Date(a.start_time.seconds * 1000) : new Date(a.start_time);
+                return aptDate > new Date();
+            });
+            
+            document.getElementById('stat-doctors').textContent = doctors.length;
+            document.getElementById('stat-connected').textContent = connected;
+            document.getElementById('stat-today').textContent = todayAppts.length;
+            document.getElementById('stat-upcoming').textContent = upcoming.length;
+            
+            renderAppointmentList('today-appointments', todayAppts);
+            renderAppointmentList('upcoming-appointments', upcoming.slice(0, 5));
+        }
+
+        function renderAppointmentList(elementId, appointments) {
+            const el = document.getElementById(elementId);
+            if (!appointments.length) {
+                el.innerHTML = '<p class="text-slate-400 text-sm">No appointments</p>';
+                return;
+            }
+            el.innerHTML = appointments.map(a => {
+                const time = a.start_time?.seconds ? new Date(a.start_time.seconds * 1000) : new Date(a.start_time);
+                return `
+                    <div onclick='showAppointmentDetails(${JSON.stringify(a).replace(/'/g, "&apos;")})' class="p-3 bg-slate-50 rounded-xl hover:bg-slate-100 cursor-pointer">
+                        <p class="font-semibold text-sm text-slate-800">${a.patient_name}</p>
+                        <p class="text-xs text-slate-500">Dr. ${a.doctor_name} • ${time.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</p>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function switchTab(tab) {
+            document.querySelectorAll('.tab-link').forEach(el => el.classList.remove('tab-active'));
+            document.querySelectorAll('[id^="tab-"]').forEach(el => el.classList.add('hidden'));
+            
+            event.currentTarget.classList.add('tab-active');
+            document.getElementById(`tab-${tab}`).classList.remove('hidden');
+            
+            if (tab === 'doctors') renderDoctors();
+            if (tab === 'schedule') renderCalendar();
+        }
+
+        function renderDoctors() {
+            const grid = document.getElementById('doctors-grid');
+            const doctors = hospitalData.doctors || [];
+            
+            grid.innerHTML = doctors.map(doc => {
+                const connected = doc.calendar_connected;
+                const initials = doc.name?.split(' ').map(n => n[0]).join('').toUpperCase() || 'DR';
+                const profilePic = doc.profile_pic || null;
+                
+                return `
+                    <div onclick='selectDoctor(${JSON.stringify(doc).replace(/'/g, "&apos;")})' class="doctor-card p-6 bg-white rounded-2xl shadow-sm border-2 border-slate-100">
+                        <div class="flex items-center gap-4 mb-4">
+                            ${profilePic ? 
+                                `<img src="${profilePic}" class="w-14 h-14 rounded-full object-cover" alt="${doc.name}">` :
+                                `<div class="w-14 h-14 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold">${initials}</div>`
+                            }
+                            <div class="flex-1">
+                                <h4 class="font-bold text-slate-800">${doc.name}</h4>
+                                <p class="text-xs text-slate-500">${doc.specialty || 'General'}</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-semibold px-3 py-1 rounded-full ${connected ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}">
+                                ${connected ? '✓ Calendar Connected' : '✗ Not Connected'}
+                            </span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function selectDoctor(doctor) {
+            selectedDoctor = doctor;
+            const docAppts = allAppointments.filter(a => a.doctor_id === doctor.id);
+            
+            document.getElementById('selected-doctor-name').textContent = `Dr. ${doctor.name}'s Appointments`;
+            document.getElementById('doctor-appointments').classList.remove('hidden');
+            
+            const list = document.getElementById('doctor-appointments-list');
+            if (!docAppts.length) {
+                list.innerHTML = '<tr><td colspan="3" class="px-6 py-8 text-center text-slate-400">No appointments</td></tr>';
+                return;
+            }
+            
+            list.innerHTML = docAppts.map(a => {
+                const time = a.start_time?.seconds ? new Date(a.start_time.seconds * 1000) : new Date(a.start_time);
+                return `
+                    <tr onclick='showAppointmentDetails(${JSON.stringify(a).replace(/'/g, "&apos;")})' class="hover:bg-slate-50 cursor-pointer">
+                        <td class="px-6 py-4 text-sm font-semibold text-slate-800">${a.patient_name}</td>
+                        <td class="px-6 py-4 text-sm text-slate-600">${time.toLocaleString()}</td>
+                        <td class="px-6 py-4"><span class="text-xs font-semibold px-2 py-1 rounded-full bg-green-50 text-green-600">${a.status || 'Confirmed'}</span></td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        function clearDoctorSelection() {
+            selectedDoctor = null;
+            document.getElementById('doctor-appointments').classList.add('hidden');
+        }
+
+        function renderCalendar() {
+            const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+            document.getElementById('calendar-month-year').textContent = `${monthNames[currentMonth]} ${currentYear}`;
+            
+            const firstDay = new Date(currentYear, currentMonth, 1).getDay();
+            const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
+            const today = new Date();
+            
+            const daysContainer = document.getElementById('calendar-days');
+            daysContainer.innerHTML = '';
+            
+            for (let i = 0; i < firstDay; i++) {
+                daysContainer.innerHTML += '<div></div>';
+            }
+            
+            for (let day = 1; day <= daysInMonth; day++) {
+                const date = new Date(currentYear, currentMonth, day);
+                const isToday = date.toDateString() === today.toDateString();
+                const isSelected = selectedDate && date.toDateString() === selectedDate.toDateString();
+                const hasAppts = allAppointments.some(a => {
+                    const aptDate = a.start_time?.seconds ? new Date(a.start_time.seconds * 1000) : new Date(a.start_time);
+                    return aptDate.toDateString() === date.toDateString();
+                });
+                
+                const dayClasses = `calendar-day ${isToday ? 'today' : ''} ${isSelected ? 'selected' : ''} ${hasAppts ? 'has-appointments' : ''}`;
+                
+                daysContainer.innerHTML += `
+                    <div onclick="selectCalendarDate(${day})" class="${dayClasses}">
+                        ${day}
+                    </div>
+                `;
+            }
+        }
+
+        function previousMonth() {
+            currentMonth--;
+            if (currentMonth < 0) { currentMonth = 11; currentYear--; }
+            renderCalendar();
+        }
+
+        function nextMonth() {
+            currentMonth++;
+            if (currentMonth > 11) { currentMonth = 0; currentYear++; }
+            renderCalendar();
+        }
+
+        function selectCalendarDate(day) {
+            selectedDate = new Date(currentYear, currentMonth, day);
+            renderCalendar();
+            
+            const dayAppts = allAppointments.filter(a => {
+                const aptDate = a.start_time?.seconds ? new Date(a.start_time.seconds * 1000) : new Date(a.start_time);
+                return aptDate.toDateString() === selectedDate.toDateString();
+            });
+            
+            document.getElementById('selected-date-title').textContent = selectedDate.toDateString();
+            const container = document.getElementById('day-appointments');
+            
+            if (!dayAppts.length) {
+                container.innerHTML = '<p class="text-slate-400">No appointments on this date</p>';
+                return;
+            }
+            
+            container.innerHTML = dayAppts.map(a => {
+                const time = a.start_time?.seconds ? new Date(a.start_time.seconds * 1000) : new Date(a.start_time);
+                return `
+                    <div onclick='showAppointmentDetails(${JSON.stringify(a).replace(/'/g, "&apos;")})' class="p-4 bg-slate-50 rounded-xl hover:bg-slate-100 cursor-pointer">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <p class="font-semibold text-slate-800">${a.patient_name}</p>
+                                <p class="text-sm text-slate-500">Dr. ${a.doctor_name}</p>
+                            </div>
+                            <span class="text-sm font-semibold text-indigo-600">${time.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function showAppointmentDetails(appointment) {
+            const time = appointment.start_time?.seconds ? new Date(appointment.start_time.seconds * 1000) : new Date(appointment.start_time);
+            document.getElementById('appointment-details').innerHTML = `
+                <div class="space-y-3">
+                    <div><span class="font-semibold">Patient:</span> ${appointment.patient_name}</div>
+                    <div><span class="font-semibold">Email:</span> ${appointment.patient_email || 'N/A'}</div>
+                    <div><span class="font-semibold">Doctor:</span> Dr. ${appointment.doctor_name}</div>
+                    <div><span class="font-semibold">Date & Time:</span> ${time.toLocaleString()}</div>
+                    <div><span class="font-semibold">Status:</span> ${appointment.status || 'Confirmed'}</div>
+                    ${appointment.notes ? `<div class="mt-4"><span class="font-semibold">Notes:</span><div class="mt-2 p-4 bg-slate-50 rounded-xl text-sm whitespace-pre-wrap">${appointment.notes}</div></div>` : ''}
+                </div>
+            `;
+            document.getElementById('appointment-modal').classList.remove('hidden');
+        }
+
+        function closeAppointmentModal() {
+            document.getElementById('appointment-modal').classList.add('hidden');
+        }
+
+        function showAddDoctorModal() {
+            const hospitalId = hospitalData.hospital?.id || hospitalData.hospital_id;
+            document.getElementById('modal-hospital-id').textContent = hospitalId;
+            document.getElementById('doctor-signup-link').value = `https://carecoordinator.org/signup/doctor?hospital_id=${hospitalId}`;
+            document.getElementById('add-doctor-modal').classList.remove('hidden');
+        }
+
+        function closeAddDoctorModal() {
+            document.getElementById('add-doctor-modal').classList.add('hidden');
+        }
+
+        function copySignupLink() {
+            const input = document.getElementById('doctor-signup-link');
+            const hospitalId = document.getElementById('modal-hospital-id').textContent;
+            
+            navigator.clipboard.writeText(`${input.value}`).then(() => {
+                alert('Signup link copied to clipboard!');
+            });
+        }
+
+        async function logout() {
+            await fetch('/auth/logout', { method: 'POST' });
+            window.location.href = '/auth/login';
+        }
+
+        loadDashboard();
+    </script>
+</body>
+</html>

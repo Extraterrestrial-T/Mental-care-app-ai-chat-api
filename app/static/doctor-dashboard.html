@@ -1,0 +1,656 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Doctor Dashboard - Care Coordinator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; overflow-x: hidden; }
+        .glass-card { background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(10px); border: 1px solid rgba(226, 232, 240, 0.8); }
+        .appointment-card { transition: all 0.2s ease; border-left: 4px solid transparent; cursor: pointer; }
+        .appointment-card:hover { transform: translateY(-2px); border-left-color: #6366f1; background-color: #ffffff; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); }
+        
+        /* Sidebar Links */
+        .sidebar-link { cursor: pointer; }
+        .sidebar-link.active { background-color: #eef2ff; color: #4f46e5; border-right: 3px solid #4f46e5; }
+        
+        /* Calendar Styles */
+        .calendar-day { transition: all 0.2s ease; cursor: pointer; aspect-ratio: 1 / 1; display: flex; align-items: center; justify-content: center; border-radius: 12px; font-size: 0.875rem; position: relative; }
+        .calendar-day:hover { background-color: #f1f5f9; }
+        .calendar-day.active { background-color: #6366f1; color: white; font-weight: 600; }
+        .calendar-day.today { border: 2px solid #6366f1; color: #6366f1; font-weight: 700; }
+        .calendar-day.has-appointments::after { content: ''; width: 4px; height: 4px; background: #10b981; border-radius: 50%; position: absolute; bottom: 6px; }
+        
+        /* Custom Scrollbar */
+        .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 20px; }
+
+        /* Modal Animation */
+        .modal-enter { animation: modalFadeIn 0.3s ease-out; }
+        @keyframes modalFadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+    </style>
+</head>
+<body class="min-h-screen flex text-slate-800">
+
+    <!-- Sidebar -->
+    <aside class="w-64 bg-white border-r border-slate-200 flex flex-col sticky top-0 h-screen hidden md:flex z-20">
+        <div class="p-6 border-b border-slate-100">
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white font-bold">C</div>
+                <span class="font-bold text-lg tracking-tight">Care Coordinator</span>
+            </div>
+        </div>
+        
+        <nav class="flex-1 mt-6 px-4 space-y-2">
+            <a onclick="switchTab('overview')" id="nav-overview" class="sidebar-link active flex items-center gap-3 p-3 rounded-xl font-medium transition-all">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/></svg>
+                Overview
+            </a>
+            <a onclick="switchTab('schedule')" id="nav-schedule" class="sidebar-link flex items-center gap-3 p-3 rounded-xl font-medium text-slate-500 hover:bg-slate-50 transition-all">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/></svg>
+                Calendar
+            </a>
+            <a href="#" class="sidebar-link flex items-center gap-3 p-3 rounded-xl font-medium text-slate-500 hover:bg-slate-50 transition-all">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/></svg>
+                Patients
+            </a>
+        </nav>
+
+        <div class="p-6 border-t border-slate-100">
+            <button onclick="logout()" class="flex items-center gap-3 text-slate-400 hover:text-red-500 transition-colors font-medium w-full">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/></svg>
+                Sign Out
+            </button>
+        </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="flex-1 overflow-y-auto h-screen bg-[#f8fafc]">
+        <!-- Header -->
+        <header class="p-6 md:px-10 flex justify-between items-center bg-white/80 backdrop-blur sticky top-0 z-10 border-b border-slate-100">
+            <div>
+                <h1 class="text-xl font-bold" id="welcome-text">Loading...</h1>
+                <p class="text-sm text-slate-500" id="current-date"></p>
+            </div>
+            <div class="flex items-center gap-4">
+                <div id="profile-area" class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-full bg-slate-200 animate-pulse"></div>
+                </div>
+            </div>
+        </header>
+
+        <div id="loading" class="flex flex-col items-center justify-center h-[60vh]">
+            <div class="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mb-4"></div>
+            <p class="text-slate-500 font-medium">Syncing your practice data...</p>
+        </div>
+
+        <!-- TAB: OVERVIEW -->
+        <div id="tab-overview" class="p-6 md:p-10 hidden">
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                
+                <!-- Left Column: Stats & Calendar -->
+                <div class="lg:col-span-4 space-y-8">
+                    <!-- Quick Stats -->
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm">
+                            <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Today</span>
+                            <div class="text-2xl font-bold mt-1" id="stat-today">0</div>
+                        </div>
+                        <div class="bg-indigo-600 p-5 rounded-3xl shadow-lg shadow-indigo-100 text-white">
+                            <span class="text-[11px] font-bold text-white/70 uppercase tracking-wider">Status</span>
+                            <div class="text-xs font-bold mt-1">Available</div>
+                        </div>
+                    </div>
+
+                    <!-- Small Calendar Widget -->
+                    <div class="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm">
+                        <div class="flex justify-between items-center mb-6 px-2">
+                            <h3 class="font-bold text-slate-800" id="calendar-month">Month</h3>
+                            <div class="flex gap-1">
+                                <button onclick="changeMonth(-1)" class="p-2 hover:bg-slate-50 rounded-lg text-slate-400">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M15 19l-7-7 7-7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/></svg>
+                                </button>
+                                <button onclick="changeMonth(1)" class="p-2 hover:bg-slate-50 rounded-lg text-slate-400">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/></svg>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-7 gap-1 text-center mb-2">
+                            <span class="text-[10px] font-bold text-slate-300 uppercase">Su</span>
+                            <span class="text-[10px] font-bold text-slate-300 uppercase">Mo</span>
+                            <span class="text-[10px] font-bold text-slate-300 uppercase">Tu</span>
+                            <span class="text-[10px] font-bold text-slate-300 uppercase">We</span>
+                            <span class="text-[10px] font-bold text-slate-300 uppercase">Th</span>
+                            <span class="text-[10px] font-bold text-slate-300 uppercase">Fr</span>
+                            <span class="text-[10px] font-bold text-slate-300 uppercase">Sa</span>
+                        </div>
+                        <div id="calendar-grid" class="grid grid-cols-7 gap-1"></div>
+                    </div>
+
+                    <!-- Google Connection Card -->
+                    <div id="calendar-status" class="p-6 rounded-3xl bg-slate-900 text-white"></div>
+                </div>
+
+                <!-- Right Column: Appointments List -->
+                <div class="lg:col-span-8 space-y-6">
+                    <div class="flex justify-between items-center">
+                        <h2 class="text-2xl font-bold text-slate-800" id="list-title">Today's Appointments</h2>
+                    </div>
+                    <div id="appointments-list" class="space-y-4"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TAB: SCHEDULE (Full Calendar) -->
+        <div id="tab-schedule" class="hidden p-6 md:p-10">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                
+                <!-- Left Side: Stats + Calendar -->
+                <div class="lg:col-span-1 space-y-6">
+                    <!-- Quick Stats -->
+                    <div class="grid grid-cols-2 gap-4">
+                        <div class="bg-white p-5 rounded-3xl border border-slate-100 shadow-sm">
+                            <span class="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Today</span>
+                            <div class="text-2xl font-bold mt-1" id="stat-today-schedule">0</div>
+                        </div>
+                        <div class="bg-indigo-600 p-5 rounded-3xl shadow-lg shadow-indigo-100 text-white">
+                            <span class="text-[11px] font-bold text-white/70 uppercase tracking-wider">Status</span>
+                            <div class="text-xs font-bold mt-1">Available</div>
+                        </div>
+                    </div>
+
+                    <!-- Calendar Widget -->
+                    <div class="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm">
+                        <div class="flex justify-between items-center mb-6 px-2">
+                            <h3 class="font-bold text-slate-800" id="schedule-calendar-month">January</h3>
+                            <div class="flex gap-1">
+                                <button onclick="changeScheduleMonth(-1)" class="p-2 hover:bg-slate-50 rounded-lg text-slate-400">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M15 19l-7-7 7-7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/></svg>
+                                </button>
+                                <button onclick="changeScheduleMonth(1)" class="p-2 hover:bg-slate-50 rounded-lg text-slate-400">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/></svg>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-7 gap-1 text-center mb-2">
+                            <span class="text-[10px] font-bold text-slate-300 uppercase">Su</span>
+                            <span class="text-[10px] font-bold text-slate-300 uppercase">Mo</span>
+                            <span class="text-[10px] font-bold text-slate-300 uppercase">Tu</span>
+                            <span class="text-[10px] font-bold text-slate-300 uppercase">We</span>
+                            <span class="text-[10px] font-bold text-slate-300 uppercase">Th</span>
+                            <span class="text-[10px] font-bold text-slate-300 uppercase">Fr</span>
+                            <span class="text-[10px] font-bold text-slate-300 uppercase">Sa</span>
+                        </div>
+                        <div id="schedule-calendar-grid" class="grid grid-cols-7 gap-1"></div>
+                    </div>
+                </div>
+
+                <!-- Right Side: Appointments List -->
+                <div class="lg:col-span-2 space-y-6">
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <span class="text-xs font-bold text-indigo-600 uppercase tracking-widest bg-indigo-50 px-3 py-1 rounded-full">Selected</span>
+                            <h2 class="text-2xl font-bold text-slate-800 mt-3" id="schedule-selected-date">Select a date</h2>
+                        </div>
+                    </div>
+                    <div id="schedule-day-list" class="space-y-4 max-h-[calc(100vh-280px)] overflow-y-auto pr-2 custom-scrollbar"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Error State -->
+        <div id="error" class="hidden p-10 text-center">
+            <div class="bg-red-50 border border-red-200 text-red-600 p-6 rounded-3xl max-w-md mx-auto">
+                <p id="error-message" class="font-medium"></p>
+                <button onclick="location.reload()" class="mt-4 px-6 py-2 bg-red-600 text-white rounded-xl text-sm font-bold">Try Again</button>
+            </div>
+        </div>
+    </main>
+
+    <!-- Appointment Detail Modal -->
+    <div id="appointment-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm hidden">
+        <div class="bg-white w-full max-w-2xl rounded-[2.5rem] shadow-2xl overflow-hidden modal-enter max-h-[90vh] overflow-y-auto">
+            <div class="p-8">
+                <div class="flex justify-between items-start mb-6">
+                    <div>
+                        <span id="modal-tag" class="px-3 py-1 bg-indigo-50 text-indigo-600 rounded-full text-[10px] font-bold uppercase tracking-wider">Appointment</span>
+                        <h2 id="modal-summary" class="text-2xl font-bold text-slate-800 mt-2"></h2>
+                        <p id="modal-time" class="text-slate-500 text-sm mt-1"></p>
+                    </div>
+                    <button onclick="closeModal()" class="p-2 hover:bg-slate-100 rounded-full text-slate-400">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M6 18L18 6M6 6l12 12" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/></svg>
+                    </button>
+                </div>
+
+                <div class="space-y-6">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Patient Details</label>
+                        <div class="flex items-center gap-3 p-4 bg-slate-50 rounded-2xl">
+                            <div class="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 font-bold" id="modal-initials">P</div>
+                            <div>
+                                <p id="modal-patient-name" class="text-sm font-semibold text-slate-700"></p>
+                                <p id="modal-patient-email" class="text-xs text-slate-500"></p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Appointment Details</label>
+                        <div class="p-4 bg-slate-50 rounded-2xl space-y-2">
+                            <div class="flex justify-between items-center">
+                                <span class="text-xs text-slate-500 font-medium">Doctor</span>
+                                <span class="text-sm font-semibold text-slate-700" id="modal-doctor-name"></span>
+                            </div>
+                            <div class="flex justify-between items-center">
+                                <span class="text-xs text-slate-500 font-medium">Status</span>
+                                <span class="px-2 py-1 text-xs font-bold rounded-full" id="modal-status"></span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2">Notes & Conversation History</label>
+                        <div class="p-4 border border-slate-100 rounded-2xl text-sm text-slate-600 leading-relaxed whitespace-pre-wrap max-h-96 overflow-y-auto custom-scrollbar" id="modal-notes"></div>
+                    </div>
+
+                    <div class="flex gap-3 pt-4">
+                        <button onclick="cancelAppointment()" class="flex-1 py-4 bg-white border border-slate-200 text-slate-700 font-bold rounded-2xl hover:bg-slate-50 transition-all">Cancel Appointment</button>
+                        <button onclick="completeVisit()" class="flex-1 py-4 bg-indigo-600 text-white font-bold rounded-2xl shadow-lg shadow-indigo-100 hover:bg-indigo-700 transition-all">Mark Complete</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed bottom-8 left-1/2 -translate-x-1/2 bg-slate-900 text-white px-6 py-3 rounded-2xl text-sm font-medium shadow-2xl opacity-0 transition-opacity pointer-events-none z-[100]">
+        Action successful
+    </div>
+
+    <script>
+        let doctorData = null;
+        let scheduleData = []; // Holds appointments for schedule view
+        let selectedDate = new Date();
+        let currentCalendarDate = new Date();
+        let currentScheduleDate = new Date(); // Separate date for schedule tab
+        let currentAppointmentId = null;
+        let currentTab = 'overview';
+
+        // --- AUTH & INIT ---
+        async function loadDashboard() {
+            try {
+                // Load overview data
+                const res = await fetch('/doctor/api/dashboard', { credentials: 'include' });
+                if (!res.ok) {
+                    if (res.status === 401) return window.location.href = '/auth/login';
+                    throw new Error('Not authorized');
+                }
+                doctorData = await res.json();
+                await loadScheduleData()
+                console.log("Doctor Data:", doctorData);
+                renderOverview();
+                
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('tab-overview').classList.remove('hidden');
+            } catch (error) {
+                showError(error);
+            }
+        }
+
+        // --- TAB SWITCHING ---
+        async function switchTab(tabName) {
+            currentTab = tabName;
+            
+            // Hide all tabs
+            document.getElementById('tab-overview').classList.add('hidden');
+            document.getElementById('tab-schedule').classList.add('hidden');
+            
+            // Deactivate nav links
+            document.querySelectorAll('.sidebar-link').forEach(l => {
+                l.classList.remove('active', 'text-indigo-600', 'bg-indigo-50');
+                l.classList.add('text-slate-500');
+            });
+
+            // Activate current tab
+            document.getElementById(`tab-${tabName}`).classList.remove('hidden');
+            const activeNav = document.getElementById(`nav-${tabName}`);
+            activeNav.classList.add('active');
+            activeNav.classList.remove('text-slate-500');
+
+            if (tabName === 'schedule') {
+                //await loadScheduleData();
+            }
+        }
+
+        // --- OVERVIEW LOGIC ---
+        function renderOverview() {
+            const user = doctorData.doctor || {};
+            
+            // Welcome & Date
+            document.getElementById('welcome-text').textContent = `Hello, Dr. ${user.last_name || user.name || 'Practitioner'}`;
+            document.getElementById('current-date').textContent = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+
+            // Profile Area
+            const profileArea = document.getElementById('profile-area');
+            const fname = user.name.split(' ')[0];
+            const lname = user.name.split(' ')[1];
+            const initials = ((fname?.[0] || 'D') + (lname?.[0] || '')).toUpperCase();
+            
+            if (doctorData.doctor.calendar_connected && user.picture) {
+                profileArea.innerHTML = `<img src="${user.picture}" class="w-10 h-10 rounded-full border-2 border-white shadow-sm">`;
+            } else {
+                profileArea.innerHTML = `<div class="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-xs font-bold shadow-sm">${initials}</div>`;
+            }
+
+            // Status Card
+            const statusEl = document.getElementById('calendar-status');
+            console.log("Calendar Connected:", doctorData.doctor.calendar_connected);
+            if (doctorData.doctor.calendar_connected) {
+                statusEl.innerHTML = `
+                    <div class="flex items-center gap-3 mb-4">
+                        <div class="w-8 h-8 bg-green-500 rounded-lg flex items-center justify-center text-white">✓</div>
+                        <span class="text-sm font-bold">Google Calendar Linked</span>
+                    </div>
+                    <p class="text-xs text-slate-400">Synced and ready.</p>
+                `;
+            } else {
+                statusEl.innerHTML = `
+                    <h4 class="text-sm font-bold mb-2">Sync Calendar</h4>
+                    <button onclick="window.location.href='/auth/calendar/connect?doctor_id=${doctorData.doctor.id}'" class="w-full py-3 bg-white text-slate-900 rounded-xl text-xs font-bold">Connect Now</button>
+                `;
+            }
+
+            // Stats - handle appointments being an object or array
+            const appointments = doctorData.appointments.upcoming;
+            
+            const todayAppts = appointments.filter(a => isSameDay(new Date(a.start_time), new Date()));
+            document.getElementById('stat-today').textContent = todayAppts.length;
+
+            renderCalendarWidget();
+            renderAppointmentList(appointments, 'appointments-list');
+        }
+
+        // --- SCHEDULE LOGIC ---
+        async function loadScheduleData() {
+            try {
+                // Fetch appointments
+                const res = await fetch('/doctor/api/appointments', { credentials: 'include' });
+                const data = await res.json();
+                //console.log("Schedule Data:", data);
+                
+                // Handle appointments being an object or array
+                scheduleData = Array.isArray(data.appointments) 
+                    ? data.appointments 
+                    : (data.appointments?.appointments || []);
+                
+                // Update today stat
+                const todayAppts = scheduleData.filter(a => isSameDay(new Date(a.start_time), new Date()));
+                document.getElementById('stat-today-schedule').textContent = todayAppts.length;
+                
+                renderScheduleCalendar();
+                renderScheduleList();
+            } catch (e) {
+                console.error("Failed to load schedule", e);
+            }
+        }
+
+        function renderScheduleCalendar() {
+            const grid = document.getElementById('schedule-calendar-grid');
+            const label = document.getElementById('schedule-calendar-month');
+            const year = currentScheduleDate.getFullYear();
+            const month = currentScheduleDate.getMonth();
+
+            label.textContent = new Date(year, month).toLocaleString('default', { month: 'long' });
+
+            grid.innerHTML = '';
+
+            const firstDay = new Date(year, month, 1).getDay();
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+            // Empty cells for days before month starts
+            for (let i = 0; i < firstDay; i++) {
+                grid.innerHTML += `<div></div>`;
+            }
+
+            for (let d = 1; d <= daysInMonth; d++) {
+                const date = new Date(year, month, d);
+                const isSelected = isSameDay(date, selectedDate);
+                const isToday = isSameDay(date, new Date());
+                
+                // Check if this date has appointments
+                const hasEvent = scheduleData.some(a => {
+                    const aptDate = new Date(a.start_time);
+                    return isSameDay(aptDate, date);
+                });
+                
+                const classes = `calendar-day ${isToday ? 'today' : ''} ${isSelected ? 'active' : ''} ${hasEvent ? 'has-appointments' : ''}`;
+                grid.innerHTML += `<div class="${classes}" onclick="selectScheduleDate(${year}, ${month}, ${d})">${d}</div>`;
+            }
+        }
+
+        function renderScheduleList() {
+            const list = document.getElementById('schedule-day-list');
+            const dateTitle = document.getElementById('schedule-selected-date');
+            
+            dateTitle.textContent = selectedDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+            
+            const filtered = scheduleData.filter(a => isSameDay(new Date(a.start_time), selectedDate));
+            
+            if (filtered.length === 0) {
+                list.innerHTML = `
+                    <div class="flex flex-col items-center justify-center h-40 text-center border-2 border-dashed border-slate-100 rounded-3xl bg-white">
+                        <p class="text-slate-400 font-medium">No appointments scheduled</p>
+                        <button class="mt-2 text-indigo-600 text-sm font-bold hover:underline">Add Block Time</button>
+                    </div>`;
+            } else {
+                list.innerHTML = filtered.map(apt => {
+                    const time = new Date(apt.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                    return `
+                    <div class="appointment-card flex items-center gap-4 p-5 bg-white rounded-3xl border border-slate-100 shadow-sm" onclick='openAppointmentModal(${JSON.stringify(apt).replace(/'/g, "&#39;")})'>
+                        <div class="w-16 text-center border-r border-slate-50 pr-4">
+                            <p class="text-xs font-bold text-indigo-600">${time}</p>
+                            <p class="text-[10px] text-slate-400 font-bold uppercase">Start</p>
+                        </div>
+                        <div class="flex-1">
+                            <h4 class="font-bold text-slate-800">${apt.patient_name || 'Consultation'}</h4>
+                            <div class="flex items-center gap-4 mt-1">
+                                <span class="flex items-center gap-1 text-[11px] text-slate-500 font-medium">
+                                    ${apt.patient_email || 'No email'}
+                                </span>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <div class="w-2 h-2 rounded-full ${apt.status === 'confirmed' ? 'bg-green-500' : apt.status === 'completed' ? 'bg-blue-500' : 'bg-slate-400'}"></div>
+                            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">${apt.status || 'Active'}</span>
+                        </div>
+                    </div>`;
+                }).join('');
+            }
+        }
+
+        function changeScheduleMonth(delta) {
+            currentScheduleDate.setMonth(currentScheduleDate.getMonth() + delta);
+            renderScheduleCalendar();
+        }
+
+        function selectScheduleDate(y, m, d) {
+            selectedDate = new Date(y, m, d);
+            renderScheduleCalendar();
+            renderScheduleList();
+        }
+
+        // --- SHARED CALENDAR/LIST HELPERS ---
+        async function renderCalendarWidget() {
+            const grid = document.getElementById('calendar-grid');
+            const label = document.getElementById('calendar-month');
+            const year = currentCalendarDate.getFullYear();
+            const month = currentCalendarDate.getMonth();
+            
+            label.textContent = new Date(year, month).toLocaleString('default', { month: 'short' });
+            grid.innerHTML = '';
+          
+        
+
+            
+            const firstDay = new Date(year, month, 1).getDay();
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+
+            // Empty cells for days before month starts
+            for (let i = 0; i < firstDay; i++) grid.innerHTML += `<div></div>`;
+
+            // Handle appointments being an object or array
+            const appointments = scheduleData; 
+
+            for (let d = 1; d <= daysInMonth; d++) {
+                const date = new Date(year, month, d);
+                const isSelected = isSameDay(date, selectedDate);
+                const isToday = isSameDay(date, new Date());
+                
+                // Check if this date has appointments
+                const hasEvent = appointments.some(a => {
+                    const aptDate = new Date(a.start_time);
+                    return isSameDay(aptDate, date);
+                });
+                
+                const classes = `calendar-day ${isToday ? 'today' : ''} ${isSelected ? 'active' : ''} ${hasEvent ? 'has-appointments' : ''}`;
+                grid.innerHTML += `<div class="${classes}" onclick="selectOverviewDate(${year}, ${month}, ${d})">${d}</div>`;
+            }
+        }
+
+        function selectOverviewDate(y, m, d) {
+            selectedDate = new Date(y, m, d);
+            renderCalendarWidget();
+            
+            // Handle appointments being an object or array
+            const appointments = scheduleData
+            console.log("Selected Date Appointments:", appointments);
+            
+            renderAppointmentList(appointments, 'appointments-list');
+        }
+
+        function changeMonth(delta) {
+            currentCalendarDate.setMonth(currentCalendarDate.getMonth() + delta);
+            renderCalendarWidget();
+        }
+
+        function renderAppointmentList(appointments, elementId) {
+            const list = document.getElementById(elementId);
+            const filtered = appointments.filter(a => isSameDay(new Date(a.start_time), selectedDate));
+            
+            const title = document.getElementById('list-title');
+            if(title) title.textContent = isSameDay(selectedDate, new Date()) ? "Today's Appointments" : `Appointments on ${selectedDate.toLocaleDateString()}`;
+
+            if (filtered.length === 0) {
+                list.innerHTML = `<div class="text-center py-10 border border-dashed border-slate-200 rounded-3xl"><p class="text-slate-400 text-sm">No appointments.</p></div>`;
+                return;
+            }
+
+            list.innerHTML = filtered.map(apt => {
+                const time = new Date(apt.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                return `
+                <div class="appointment-card flex items-center gap-4 p-5 bg-white rounded-3xl border border-slate-100 shadow-sm" onclick='openAppointmentModal(${JSON.stringify(apt).replace(/'/g, "&#39;")})'>
+                    <div class="w-16 text-center border-r border-slate-50 pr-4">
+                        <p class="text-xs font-bold text-indigo-600">${time}</p>
+                        <p class="text-[10px] text-slate-400 font-bold uppercase">Start</p>
+                    </div>
+                    <div class="flex-1">
+                        <h4 class="font-bold text-slate-800">${apt.patient_name || 'Consultation'}</h4>
+                        <div class="flex items-center gap-4 mt-1">
+                            <span class="flex items-center gap-1 text-[11px] text-slate-500 font-medium">
+                                ${apt.patient_email || 'Private Booking'}
+                            </span>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <div class="w-2 h-2 rounded-full ${apt.status === 'confirmed' ? 'bg-green-500' : apt.status === 'completed' ? 'bg-blue-500' : 'bg-slate-400'}"></div>
+                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-widest">${apt.status || 'Active'}</span>
+                    </div>
+                </div>`;
+            }).join('');
+        }
+
+        // --- MODAL & ACTIONS ---
+        function openAppointmentModal(apt) {
+            currentAppointmentId = apt.id;
+            const modal = document.getElementById('appointment-modal');
+            const startTime = new Date(apt.start_time);
+            const endTime = new Date(apt.end_time);
+            const timeStr = startTime.toLocaleString([], { dateStyle: 'full', timeStyle: 'short' });
+
+            document.getElementById('modal-summary').textContent = `Appointment with ${apt.patient_name || 'Patient'}`;
+            document.getElementById('modal-time').textContent = `${timeStr} - ${endTime.toLocaleTimeString([], { timeStyle: 'short' })}`;
+            document.getElementById('modal-patient-name').textContent = apt.patient_name || 'Unknown Patient';
+            document.getElementById('modal-patient-email').textContent = apt.patient_email || 'No email provided';
+            document.getElementById('modal-doctor-name').textContent = apt.doctor_name || 'Dr. Practitioner';
+            document.getElementById('modal-notes').textContent = apt.notes || 'No notes available for this appointment.';
+            document.getElementById('modal-initials').textContent = (apt.patient_name || 'P')[0].toUpperCase();
+            
+            const statusEl = document.getElementById('modal-status');
+            const status = apt.status || 'confirmed';
+            statusEl.textContent = status.charAt(0).toUpperCase() + status.slice(1);
+            
+            if (status === 'confirmed') {
+                statusEl.className = 'px-2 py-1 text-xs font-bold rounded-full bg-green-100 text-green-700';
+            } else if (status === 'completed') {
+                statusEl.className = 'px-2 py-1 text-xs font-bold rounded-full bg-blue-100 text-blue-700';
+            } else if (status === 'cancelled') {
+                statusEl.className = 'px-2 py-1 text-xs font-bold rounded-full bg-red-100 text-red-700';
+            } else {
+                statusEl.className = 'px-2 py-1 text-xs font-bold rounded-full bg-slate-100 text-slate-700';
+            }
+            
+            modal.classList.remove('hidden');
+        }
+
+        function closeModal() {
+            document.getElementById('appointment-modal').classList.add('hidden');
+            currentAppointmentId = null;
+        }
+
+        async function updateStatus(status) {
+            if (!currentAppointmentId || !confirm(`Mark this appointment as ${status}?`)) return;
+            try {
+                const res = await fetch(`/doctor/api/appointments/${currentAppointmentId}/status?status=${status}`, { method: 'PUT', credentials: 'include' });
+                if (res.ok) {
+                    showToast(`Appointment ${status}`);
+                    setTimeout(() => location.reload(), 1000);
+                } else showToast('Failed');
+            } catch (e) { console.error(e); }
+        }
+
+        function cancelAppointment() { updateStatus('cancelled'); }
+        function completeVisit() { updateStatus('completed'); }
+
+        function showToast(msg) {
+            const t = document.getElementById('toast');
+            t.textContent = msg; t.style.opacity = '1';
+            setTimeout(() => t.style.opacity = '0', 3000);
+        }
+
+        function isSameDay(d1, d2) {
+            if (!d1 || !d2) return false;
+            return d1.getDate() === d2.getDate() && 
+                   d1.getMonth() === d2.getMonth() && 
+                   d1.getFullYear() === d2.getFullYear();
+        }
+
+        function showError(err) {
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('error').classList.remove('hidden');
+            document.getElementById('error-message').textContent = 'Error loading data.';
+            console.error(err);
+        }
+        
+        async function logout() {
+            await fetch('/auth/logout', { method: 'POST' });
+            window.location.href = '/auth/login';
+        }
+
+        // Start
+        loadDashboard();
+    </script>
+</body>
+</html>

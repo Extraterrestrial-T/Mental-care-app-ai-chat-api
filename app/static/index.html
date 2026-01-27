@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Raya | Compassionate Support</title>
+    <title>CeCe | Compassionate Support</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
     <style>
@@ -31,6 +31,50 @@
             border-radius: 1.25rem 1.25rem 1.25rem 0.25rem;
         }
 
+        .doctor-card {
+            background: white;
+            border-radius: 1rem;
+            padding: 1.25rem;
+            box-shadow: 2px 4px 12px rgba(0, 0, 0, 0.08);
+            transition: all 0.3s ease;
+            cursor: pointer;
+            border: 2px solid transparent;
+        }
+
+        .doctor-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 4px 8px 20px rgba(99, 102, 241, 0.15);
+            border-color: #e0e7ff;
+        }
+
+        .doctor-card.selected {
+            border-color: #6366f1;
+            box-shadow: 4px 8px 24px rgba(99, 102, 241, 0.25);
+        }
+
+        .time-slot {
+            padding: 0.75rem 1rem;
+            border: 1.5px solid #e5e7eb;
+            border-radius: 0.75rem;
+            font-size: 0.875rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-align: center;
+            font-weight: 500;
+        }
+
+        .time-slot:hover:not(.unavailable) {
+            border-color: #818cf8;
+            background: #eef2ff;
+        }
+
+        .time-slot.selected {
+            background: #6366f1;
+            color: white;
+            border-color: #6366f1;
+            box-shadow: 0 2px 8px rgba(99, 102, 241, 0.3);
+        }
+
         .typing-dot {
             width: 4px;
             height: 4px;
@@ -48,21 +92,100 @@
         }
 
         .fade-in { animation: fadeIn 0.3s ease-in; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes fadeIn { 
+            from { opacity: 0; transform: translateY(10px); } 
+            to { opacity: 1; transform: translateY(0); } 
+        }
+
+        .slide-left {
+            animation: slideLeft 0.4s ease-out;
+        }
+        @keyframes slideLeft {
+            from { opacity: 0; transform: translateX(30px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        .slide-right {
+            animation: slideRight 0.4s ease-out;
+        }
+        @keyframes slideRight {
+            from { opacity: 0; transform: translateX(-30px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        /* Modern Calendar Styles */
+        .calendar-container {
+            background: white;
+            border-radius: 1rem;
+            padding: 1.5rem;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        }
+
+        .calendar-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 0.5rem;
+        }
+
+        .calendar-day {
+            aspect-ratio: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 0.5rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .calendar-day:not(.disabled):hover {
+            background: #eef2ff;
+        }
+
+        .calendar-day.selected {
+            background: #6366f1;
+            color: white;
+        }
+
+        .calendar-day.disabled {
+            color: #cbd5e1;
+            cursor: not-allowed;
+        }
+
+        .calendar-day.today {
+            border: 2px solid #6366f1;
+        }
+
+        .input-error {
+            border-color: #ef4444 !important;
+        }
+
+        .error-text {
+            color: #ef4444;
+            font-size: 0.75rem;
+            margin-top: 0.25rem;
+        }
     </style>
 </head>
 <body class="bg-slate-50 h-screen flex flex-col items-center justify-center p-4">
 
     <div class="w-full max-w-lg bg-white shadow-2xl rounded-3xl overflow-hidden flex flex-col h-[90vh] border border-slate-100">
         
-        <!-- Premium Header -->
         <header class="px-6 py-5 bg-white border-b border-slate-100 flex items-center justify-between">
             <div class="flex items-center space-x-3">
                 <div class="w-10 h-10 bg-indigo-100 rounded-full flex items-center justify-center">
-                    <span class="text-indigo-600 font-semibold text-lg">R</span>
+                    <span class="text-indigo-600 font-semibold text-lg">C</span>
                 </div>
                 <div>
-                    <h1 class="text-lg font-semibold text-slate-800 leading-tight">Raya</h1>
+                    <h1 class="text-lg font-semibold text-slate-800 leading-tight">CeCe</h1>
                     <div class="flex items-center space-x-1.5">
                         <div id="online-indicator" class="w-2 h-2 bg-slate-300 rounded-full"></div>
                         <span id="connection-text" class="text-xs text-slate-400 font-medium">Connecting...</span>
@@ -71,42 +194,39 @@
             </div>
         </header>
 
-        <!-- Messages Area -->
         <main id="chat-output" class="flex-grow p-6 space-y-6 bg-white">
             <div class="ai-bubble max-w-[85%] p-4 shadow-sm text-sm leading-relaxed fade-in">
-                Hi there. I'm Raya, your support assistant. How are you feeling today?
+                Hi there. I'm CeCe, your AI support assistant powered by the Corner Health Center. How can I help you today?
+                By chatting with me you agree to our <a href = 'https://cornerhealth.org/contact-us/privacy-patient-rights/' class='underline hover:no-underline'>privacy policy</a>
             </div>
         </main>
 
-        <!-- Action/Footer Area -->
         <footer class="p-6 bg-white border-t border-slate-50">
-            <!-- Typing Indicator -->
             <div id="loading-indicator" class="hidden mb-4 ml-2 fade-in">
                 <div class="flex items-center space-x-1">
-                    <span class="text-xs text-slate-400 mr-1 italic">Raya is thinking</span>
+                    <span class="text-xs text-slate-400 mr-1 italic">CeCe is thinking</span>
                     <div class="typing-dot"></div>
                     <div class="typing-dot"></div>
                     <div class="typing-dot"></div>
                 </div>
             </div>
             
-            <!-- Interrupt Form -->
             <div id="interrupt-area" class="hidden p-4 mb-4 bg-indigo-50 rounded-2xl border border-indigo-100 fade-in">
                 <p class="text-xs font-semibold text-indigo-700 uppercase tracking-wider mb-2">Required Information</p>
                 <p class="text-sm text-indigo-900 mb-3" id="interrupt-request"></p>
-                <div class="flex space-x-2">
+                <div class="space-y-2">
                     <input type="text" id="interrupt-input" 
-                           class="flex-grow p-2.5 bg-white border border-indigo-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                           class="w-full p-2.5 bg-white border border-indigo-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    <p class="error-text hidden" id="interrupt-error"></p>
                     <button onclick="handleResume()" 
-                            class="px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-xl hover:bg-indigo-700 transition shadow-sm">
+                            class="w-full px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-xl hover:bg-indigo-700 transition shadow-sm">
                         Submit
                     </button>
                 </div>
             </div>
 
-            <!-- Input Bar -->
             <div id="main-input-area" class="flex items-center space-x-2 bg-slate-100 p-1.5 rounded-2xl">
-                <input type="text" id="user-input" placeholder="Message Raya..." 
+                <input type="text" id="user-input" placeholder="Message CeCe..." 
                        class="flex-grow bg-transparent p-3 text-sm focus:outline-none"
                        onkeydown="if(event.key === 'Enter') sendMessage()">
                 <button id="send-button" onclick="sendMessage()" 
@@ -133,12 +253,37 @@
         const interruptArea = document.getElementById('interrupt-area');
         const interruptRequest = document.getElementById('interrupt-request');
         const interruptInput = document.getElementById('interrupt-input');
+        const interruptError = document.getElementById('interrupt-error');
         
         let ws = null;
         let waitingForResume = false;
         let requiredFieldType = null;
+        let hospitalId = 'hospital_d4ec946b3ffa';
+        
+        // Booking state
+        let bookingState = {
+            selectedDoctor: null,
+            selectedDate: null,
+            selectedSlot: null,
+            patientName: '',
+            patientEmail: '',
+            patientPhone: ''
+        };
 
-        function scrollToBottom() { chatOutput.scrollTop = chatOutput.scrollHeight; }
+        // Validation functions
+        function validateEmail(email) {
+            const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            return re.test(email);
+        }
+
+        function validatePhone(phone) {
+            const re = /^[\d\s\-\+\(\)]{10,}$/;
+            return re.test(phone);
+        }
+
+        function scrollToBottom() { 
+            chatOutput.scrollTop = chatOutput.scrollHeight; 
+        }
 
         function setStatus(connected) {
             if (connected) {
@@ -163,15 +308,414 @@
             scrollToBottom();
         }
 
+        function showDoctorSelection() {
+            loadingIndicator.classList.remove('hidden');
+    
+            ws.send(JSON.stringify({
+                type: "get_doctors",
+                hospital_id: hospitalId
+            }));
+        }
+
+        function appendDoctorsList(doctors) {
+            if (!doctors || doctors.length === 0) {
+                appendMessage("I'm sorry, there are no available doctors at the moment. Please try again later.", 'ai');
+                return;
+            }
+
+            const container = document.createElement('div');
+            container.className = "fade-in mb-4 space-y-3";
+            container.innerHTML = '<p class="text-sm font-semibold text-slate-700 mb-3">Select a doctor:</p>';
+            
+            doctors.forEach(doc => {
+                const card = document.createElement('div');
+                card.className = "doctor-card";
+                card.onclick = () => selectDoctor(doc, card);
+                
+                const avatarUrl = doc.profile_pic || `https://ui-avatars.com/api/?name=${encodeURIComponent(doc.name)}&background=6366f1&color=fff&bold=true`;
+                
+                card.innerHTML = `
+                    <div class="flex items-center gap-3">
+                        <div class="w-14 h-14 rounded-full flex-shrink-0 overflow-hidden">
+                            <img src="${avatarUrl}" alt="Avatar" class="w-full h-full object-cover">
+                        </div>
+                        <div class="flex flex-col flex-grow">
+                            <span class="text-slate-900 font-semibold text-base">Dr. ${doc.name}</span>
+                            <span class="text-xs text-slate-500 font-medium">${doc.specialty}</span>
+                        </div>
+                        <div class="text-indigo-600">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
+                            </svg>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+            
+            chatOutput.appendChild(container);
+            scrollToBottom();
+        }
+
+        function selectDoctor(doctor, cardElement) {
+            document.querySelectorAll('.doctor-card').forEach(card => {
+                card.classList.remove('selected');
+            });
+            
+            cardElement.classList.add('selected');
+            bookingState.selectedDoctor = doctor;
+            
+            setTimeout(() => showCalendar(), 300);
+        }
+
+        function showCalendar() {
+            const container = document.createElement('div');
+            container.className = "slide-left mb-4";
+            container.id = "booking-widget";
+            
+            const today = new Date();
+            const currentMonth = today.getMonth();
+            const currentYear = today.getFullYear();
+            
+            container.innerHTML = `
+                <div class="calendar-container">
+                    <div class="calendar-header">
+                        <h3 class="text-base font-semibold text-slate-800">Select Date</h3>
+                        <div class="flex items-center gap-2">
+                            <button onclick="changeMonth(-1)" class="p-2 hover:bg-slate-100 rounded-lg transition">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd" />
+                                </svg>
+                            </button>
+                            <span class="text-sm font-medium text-slate-700 min-w-[120px] text-center" id="calendar-month-year"></span>
+                            <button onclick="changeMonth(1)" class="p-2 hover:bg-slate-100 rounded-lg transition">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="calendar-grid mb-3">
+                        <div class="text-center text-xs font-semibold text-slate-500 py-2">Su</div>
+                        <div class="text-center text-xs font-semibold text-slate-500 py-2">Mo</div>
+                        <div class="text-center text-xs font-semibold text-slate-500 py-2">Tu</div>
+                        <div class="text-center text-xs font-semibold text-slate-500 py-2">We</div>
+                        <div class="text-center text-xs font-semibold text-slate-500 py-2">Th</div>
+                        <div class="text-center text-xs font-semibold text-slate-500 py-2">Fr</div>
+                        <div class="text-center text-xs font-semibold text-slate-500 py-2">Sa</div>
+                    </div>
+                    <div class="calendar-grid" id="calendar-days"></div>
+                </div>
+            `;
+            
+            chatOutput.appendChild(container);
+            scrollToBottom();
+            
+            renderCalendar(currentMonth, currentYear);
+        }
+
+        let currentCalendarMonth = new Date().getMonth();
+        let currentCalendarYear = new Date().getFullYear();
+
+        function renderCalendar(month, year) {
+            const daysContainer = document.getElementById('calendar-days');
+            const monthYearLabel = document.getElementById('calendar-month-year');
+            
+            if (!daysContainer || !monthYearLabel) return;
+            
+            const monthNames = ["January", "February", "March", "April", "May", "June",
+                "July", "August", "September", "October", "November", "December"];
+            
+            monthYearLabel.textContent = `${monthNames[month]} ${year}`;
+            
+            const firstDay = new Date(year, month, 1).getDay();
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+            const today = new Date();
+            
+            daysContainer.innerHTML = '';
+            
+            // Empty cells for days before month starts
+            for (let i = 0; i < firstDay; i++) {
+                const emptyDay = document.createElement('div');
+                daysContainer.appendChild(emptyDay);
+            }
+            
+            // Days of the month
+            for (let day = 1; day <= daysInMonth; day++) {
+                const dayDate = new Date(year, month, day);
+                const isPast = dayDate < today.setHours(0, 0, 0, 0);
+                const isToday = dayDate.toDateString() === new Date().toDateString();
+                
+                const dayElement = document.createElement('div');
+                dayElement.className = `calendar-day ${isPast ? 'disabled' : ''} ${isToday ? 'today' : ''}`;
+                dayElement.textContent = day;
+                
+                if (!isPast) {
+                    dayElement.onclick = () => selectDate(year, month, day, dayElement);
+                }
+                
+                daysContainer.appendChild(dayElement);
+            }
+        }
+
+        function changeMonth(delta) {
+            currentCalendarMonth += delta;
+            
+            if (currentCalendarMonth > 11) {
+                currentCalendarMonth = 0;
+                currentCalendarYear++;
+            } else if (currentCalendarMonth < 0) {
+                currentCalendarMonth = 11;
+                currentCalendarYear--;
+            }
+            
+            // Don't allow going to past months
+            const today = new Date();
+            if (currentCalendarYear < today.getFullYear() || 
+                (currentCalendarYear === today.getFullYear() && currentCalendarMonth < today.getMonth())) {
+                currentCalendarMonth = today.getMonth();
+                currentCalendarYear = today.getFullYear();
+                return;
+            }
+            
+            renderCalendar(currentCalendarMonth, currentCalendarYear);
+        }
+
+        function selectDate(year, month, day, element) {
+            document.querySelectorAll('.calendar-day').forEach(el => el.classList.remove('selected'));
+            element.classList.add('selected');
+            
+            const date = new Date(year, month, day);
+            bookingState.selectedDate = date.toISOString().split('T')[0];
+            
+            setTimeout(() => {
+                loadingIndicator.classList.remove('hidden');
+                ws.send(JSON.stringify({
+                    type: "get_availability",
+                    doctor_id: bookingState.selectedDoctor.id,
+                    date: bookingState.selectedDate,
+                    duration_minutes: 30
+                }));
+            }, 300);
+        }
+
+        function showTimeSlots(slots) {
+            loadingIndicator.classList.add('hidden');
+            
+            const widget = document.getElementById('booking-widget');
+            if (!widget) return;
+            
+            if (!slots || slots.length === 0) {
+                widget.innerHTML = `
+                    <div class="calendar-container slide-right">
+                        <div class="flex items-center justify-between mb-4">
+                            <button onclick="showCalendar()" class="p-2 hover:bg-slate-100 rounded-lg transition">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd" />
+                                </svg>
+                            </button>
+                            <h3 class="text-base font-semibold text-slate-800">Select Time</h3>
+                            <div class="w-9"></div>
+                        </div>
+                        <div class="text-center py-8 text-sm text-slate-600">
+                            No available slots for this date. Please select another date.
+                        </div>
+                    </div>
+                `;
+                return;
+            }
+            
+            const formattedDate = new Date(bookingState.selectedDate).toLocaleDateString('en-US', { 
+                weekday: 'long', 
+                month: 'long', 
+                day: 'numeric',
+                year: 'numeric'
+            });
+            
+            widget.innerHTML = `
+                <div class="calendar-container slide-right">
+                    <div class="flex items-center justify-between mb-4">
+                        <button onclick="showCalendar()" class="p-2 hover:bg-slate-100 rounded-lg transition">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd" />
+                            </svg>
+                        </button>
+                        <h3 class="text-base font-semibold text-slate-800">Select Time</h3>
+                        <div class="w-9"></div>
+                    </div>
+                    <p class="text-xs text-slate-600 mb-4">${formattedDate}</p>
+                    <div class="grid grid-cols-3 gap-2" id="time-slots-grid"></div>
+                </div>
+            `;
+            
+            const grid = widget.querySelector('#time-slots-grid');
+            slots.forEach(slot => {
+                const slotDiv = document.createElement('div');
+                slotDiv.className = 'time-slot';
+                slotDiv.textContent = slot.display;
+                slotDiv.dataset.start = slot.start;
+                slotDiv.dataset.end = slot.end;
+                slotDiv.onclick = () => selectTimeSlot(slot, slotDiv);
+                grid.appendChild(slotDiv);
+            });
+            
+            scrollToBottom();
+        }
+
+        function selectTimeSlot(slot, slotElement) {
+            document.querySelectorAll('.time-slot').forEach(s => s.classList.remove('selected'));
+            slotElement.classList.add('selected');
+            bookingState.selectedSlot = slot;
+            
+            setTimeout(() => showBookingConfirmation(), 300);
+        }
+
+        function showBookingConfirmation() {
+            const widget = document.getElementById('booking-widget');
+            if (!widget) return;
+            
+            const formattedDate = new Date(bookingState.selectedDate).toLocaleDateString('en-US', { 
+                weekday: 'long', 
+                month: 'long', 
+                day: 'numeric',
+                year: 'numeric'
+            });
+            
+            widget.innerHTML = `
+                <div class="calendar-container slide-right">
+                    <div class="flex items-center justify-between mb-4">
+                        <button onclick="showTimeSlots(null)" class="p-2 hover:bg-slate-100 rounded-lg transition" id="back-to-slots">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd" />
+                            </svg>
+                        </button>
+                        <h3 class="text-base font-semibold text-slate-800">Confirm Booking</h3>
+                        <div class="w-9"></div>
+                    </div>
+                    
+                    <div class="bg-slate-50 p-3 rounded-lg mb-4 space-y-1 text-xs">
+                        <p><span class="font-semibold text-slate-700">Doctor:</span> Dr. ${bookingState.selectedDoctor.name}</p>
+                        <p><span class="font-semibold text-slate-700">Specialty:</span> ${bookingState.selectedDoctor.specialty}</p>
+                        <p><span class="font-semibold text-slate-700">Date:</span> ${formattedDate}</p>
+                        <p><span class="font-semibold text-slate-700">Time:</span> ${bookingState.selectedSlot.display}</p>
+                    </div>
+                    
+                    <div id="booking-error" class="hidden bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+                        <p class="text-sm text-red-800" id="booking-error-message"></p>
+                    </div>
+                    
+                    <div class="space-y-3">
+                        <div>
+                            <label class="text-xs font-semibold text-slate-600 block mb-1">Additional Notes (Optional)</label>
+                            <textarea id="booking-notes" 
+                                      rows="2"
+                                      class="w-full p-2.5 border border-slate-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                      placeholder="Any specific concerns or requests..."></textarea>
+                        </div>
+                        <button onclick="confirmBooking()" id="confirm-booking-btn"
+                                class="w-full px-4 py-3 bg-indigo-600 text-white font-semibold rounded-xl hover:bg-indigo-700 transition shadow-lg">
+                            Confirm Appointment
+                        </button>
+                    </div>
+                </div>
+            `;
+            
+            // Add back button handler for time slots
+            setTimeout(() => {
+                const backBtn = document.getElementById('back-to-slots');
+                if (backBtn) {
+                    backBtn.onclick = () => {
+                        loadingIndicator.classList.remove('hidden');
+                        ws.send(JSON.stringify({
+                            type: "get_availability",
+                            doctor_id: bookingState.selectedDoctor.id,
+                            date: bookingState.selectedDate,
+                            duration_minutes: 30
+                        }));
+                    };
+                }
+            }, 100);
+            
+            scrollToBottom();
+        }
+
+        function confirmBooking() {
+            const notesInput = document.getElementById('booking-notes');
+            const additionalNotes = notesInput ? notesInput.value : '';
+            
+            loadingIndicator.classList.remove('hidden');
+            
+            const bookingPayload = {
+                type: "confirm_booking",
+                booking_data: {
+                    doctor_id: bookingState.selectedDoctor.id,
+                    patient_name: bookingState.patientName,
+                    patient_email: bookingState.patientEmail,
+                    start_time: bookingState.selectedSlot.start,
+                    end_time: bookingState.selectedSlot.end,
+                    notes: additionalNotes
+                }
+            };
+            
+            ws.send(JSON.stringify(bookingPayload));
+        }
+
         function connectWebSocket() {
             if (ws) ws.close();
             ws = new WebSocket(WS_URL);
+            
             ws.onopen = () => setStatus(true);
+            
             ws.onmessage = (event) => {
                 const data = JSON.parse(event.data);
+                
+                //console.log('WebSocket message received:', data);
+                
                 if (data.type === 'response') {
                     appendMessage(data.text, 'ai');
                     loadingIndicator.classList.add('hidden');
+                    
+                } else if (data.type === 'show_doctor_selection') {
+                    //console.log('Showing doctor selection');
+                    
+                    if (data.patient_info) {
+                        bookingState.patientName = data.patient_info.name || '';
+                        bookingState.patientEmail = data.patient_info.email || '';
+                        bookingState.patientPhone = data.patient_info.phone || '';
+                    }
+                    
+                    showDoctorSelection();
+                    
+                } else if (data.type === 'doctors_list') {
+                    loadingIndicator.classList.add('hidden');
+                    //console.log('Received doctors list:', data.doctors);
+                    appendDoctorsList(data.doctors);
+                    
+                } else if (data.type === 'availability_response') {
+                    showTimeSlots(data.slots);
+                    
+                } else if (data.type === 'booking_result') {
+                    loadingIndicator.classList.add('hidden');
+                    
+                    if (data.success) {
+                        appendMessage(`${data.message}`, 'ai');
+                        
+                        // Remove booking widget
+                        const widget = document.getElementById('booking-widget');
+                        if (widget) widget.remove();
+                        
+                        bookingState = {
+                            selectedDoctor: null,
+                            selectedDate: null,
+                            selectedSlot: null,
+                            patientName: '',
+                            patientEmail: '',
+                            patientPhone: ''
+                        };
+                    } else {
+                        appendMessage(`Booking failed: ${data.message}`, 'ai');
+                    }
+                    
                 } else if (data.type === 'interrupt') {
                     loadingIndicator.classList.add('hidden');
                     requiredFieldType = data.field;
@@ -179,10 +723,16 @@
                     interruptRequest.textContent = data.request;
                     interruptArea.classList.remove('hidden');
                     interruptInput.focus();
+                    
                 } else if (data.type === 'end') {
                     loadingIndicator.classList.add('hidden');
+                    
+                } else if (data.type === 'error') {
+                    loadingIndicator.classList.add('hidden');
+                    appendMessage(`Error: ${data.message}`, 'ai');
                 }
             };
+            
             ws.onclose = () => {
                 setStatus(false);
                 setTimeout(connectWebSocket, 3000);
@@ -191,9 +741,54 @@
 
         function handleResume() {
             const val = interruptInput.value.trim();
-            if (!val) return;
-            ws.send(JSON.stringify({ type: "resume", resume_value: { [requiredFieldType]: val } }));
+            interruptError.classList.add('hidden');
+            interruptInput.classList.remove('input-error');
+            
+            if (!val) {
+                interruptError.textContent = 'This field is required';
+                interruptError.classList.remove('hidden');
+                interruptInput.classList.add('input-error');
+                return;
+            }
+            
+            // Validate email
+            if (requiredFieldType === 'user_email') {
+                if (!validateEmail(val)) {
+                    interruptError.textContent = 'Please enter a valid email address';
+                    interruptError.classList.remove('hidden');
+                    interruptInput.classList.add('input-error');
+                    return;
+                }
+                bookingState.patientEmail = val;
+            }
+            
+            // Validate phone
+            if (requiredFieldType === 'user_phonenumber') {
+                if (!validatePhone(val)) {
+                    interruptError.textContent = 'Please enter a valid phone number';
+                    interruptError.classList.remove('hidden');
+                    interruptInput.classList.add('input-error');
+                    return;
+                }
+                bookingState.patientPhone = val;
+            }
+            
+            // Store patient names
+            if (requiredFieldType === 'user_Fname' || requiredFieldType === 'user_Lname') {
+                if (requiredFieldType === 'user_Fname') {
+                    bookingState.patientName = val;
+                } else {
+                    bookingState.patientName += ' ' + val;
+                }
+            }
+            
+            ws.send(JSON.stringify({ 
+                type: "resume", 
+                resume_value: { [requiredFieldType]: val } 
+            }));
+            
             appendMessage(val, 'user');
+            
             interruptInput.value = '';
             interruptArea.classList.add('hidden');
             waitingForResume = false;
@@ -202,9 +797,15 @@
 
         function sendMessage() {
             if (waitingForResume) return handleResume();
+            
             const msg = userInput.value.trim();
             if (!msg) return;
-            ws.send(JSON.stringify({ query: msg }));
+            
+            ws.send(JSON.stringify({ 
+                query: msg,
+                hospital_id: hospitalId 
+            }));
+            
             appendMessage(msg, 'user');
             userInput.value = '';
             loadingIndicator.classList.remove('hidden');

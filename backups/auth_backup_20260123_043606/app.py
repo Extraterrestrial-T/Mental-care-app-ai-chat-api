@@ -14,10 +14,11 @@ from datetime import datetime
 from app.config import settings
 
 # Import routers
-from app.auth.auth_routes import router as auth_router  # Migrated to unified auth
+from app.auth.oauth_routes import router as auth_router
 from app.auth.signup_routes import router as signup_router
 from app.routers.doctor_dashboard import router as doctor_router
 from app.routers.hospital_dashboard import router as hospital_router
+from app.auth.auth_routes import router as auth_router_new
 
 # Import agent
 from app.agent.agent_core import get_agent_app
@@ -30,8 +31,7 @@ from app.services.doctor_service import doctor_service
 agent_instance = None
 redis_client = None
 
-DEFAULT_HOSPITAL_ID = "hospital_ZIBhJRtD1GOwS9d21v6IriSkP0D3"  # Fallback hospital ID
-
+DEFAULT_HOSPITAL_ID = "hospital_d4ec946b3ffa"  # Fallback hospital ID
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -81,7 +81,7 @@ app.include_router(auth_router)
 app.include_router(signup_router)
 app.include_router(doctor_router)
 app.include_router(hospital_router)
-
+app.include_router(auth_router_new, prefix="/authentication")  
 
 #==================UTILITY FUCTIONS ===================
 def clean_appointment_data(input_dict):
@@ -264,8 +264,8 @@ async def websocket_chat(websocket: WebSocket):
             
             # ==================== HANDLE DOCTOR LIST REQUEST ====================
             if client_message.get("type") == "get_doctors":
-                #hospital_id = client_message.get("hospital_id", DEFAULT_HOSPITAL_ID)
-                hospital_id = DEFAULT_HOSPITAL_ID
+                hospital_id = client_message.get("hospital_id", DEFAULT_HOSPITAL_ID)
+                
                 print(f"DEBUG: Fetching doctors for hospital: {hospital_id}")  # Debug log
                 
                 try:
@@ -466,3 +466,12 @@ async def get_config():
             "chat_enabled": agent_instance is not None,
         }
     }
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(
+        "app.app:app",
+        host="0.0.0.0",
+        port=8000,
+        reload=True
+    )

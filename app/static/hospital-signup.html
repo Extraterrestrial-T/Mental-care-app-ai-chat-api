@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hospital Registration - Care Coordinator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        {%raw%}
+        body { font-family: 'Inter', sans-serif; }
+        .input-field { background-color: #f8fafc; border: 1px solid #f1f5f9; transition: all 0.2s; }
+        .input-field:focus { background-color: #fff; border-color: #6366f1; outline: none; box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1); }
+        .section-title { position: relative; display: inline-block; }
+        .section-title::after { content: ''; position: absolute; bottom: -4px; left: 0; width: 20px; height: 2px; background: #6366f1; border-radius: 2px; }
+    
+        {%endraw%}
+    </style>
+</head>
+<body class="bg-slate-50 min-h-screen flex items-center justify-center p-4 py-12">
+    <div class="w-full max-w-2xl">
+        <div class="bg-white rounded-[2.5rem] shadow-2xl p-10 border border-slate-100">
+            <div class="text-center mb-10">
+                <div class="inline-flex items-center justify-center w-14 h-14 bg-indigo-600 rounded-2xl text-white font-bold text-xl mb-4 shadow-lg shadow-indigo-100">CC</div>
+                <h1 class="text-2xl font-bold text-slate-800">Hospital Registration</h1>
+                <p class="text-slate-400 text-sm mt-2">Join the Care Coordinator network of medical facilities.</p>
+            </div>
+
+            <form id="hospital-signup-form" class="space-y-8">
+                <!-- Facility Info -->
+                <div class="space-y-6">
+                    <h2 class="text-xs font-bold text-slate-400 uppercase tracking-widest section-title">Facility Details</h2>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-tight mb-2 ml-1">Hospital Name</label>
+                        <input type="text" name="name" required class="w-full px-5 py-4 rounded-2xl text-sm input-field" placeholder="General Medical Center">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-500 uppercase tracking-tight mb-2 ml-1">Physical Address</label>
+                        <textarea name="address" required rows="2" class="w-full px-5 py-4 rounded-2xl text-sm input-field resize-none" placeholder="123 Health Ave, Medical District"></textarea>
+                    </div>
+                </div>
+
+                <!-- Contact Info -->
+                <div class="space-y-6">
+                    <h2 class="text-xs font-bold text-slate-400 uppercase tracking-widest section-title">Primary Contact</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase tracking-tight mb-2 ml-1">Admin Name</label>
+                            <input type="text" name="admin_name" required class="w-full px-5 py-4 rounded-2xl text-sm input-field" placeholder="John Simmons">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase tracking-tight mb-2 ml-1">Phone Number</label>
+                            <input type="tel" name="phone" required class="w-full px-5 py-4 rounded-2xl text-sm input-field" placeholder="+1 (555) 000-0000">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Account Credentials -->
+                <div class="space-y-6">
+                    <h2 class="text-xs font-bold text-slate-400 uppercase tracking-widest section-title">Admin Access</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase tracking-tight mb-2 ml-1">Admin Email</label>
+                            <input type="email" name="admin_email" required class="w-full px-5 py-4 rounded-2xl text-sm input-field" placeholder="admin@hospital.com">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-500 uppercase tracking-tight mb-2 ml-1">Secure Password</label>
+                            <input type="password" name="password" required class="w-full px-5 py-4 rounded-2xl text-sm input-field" placeholder="••••••••">
+                        </div>
+                    </div>
+                </div>
+
+                <div id="error" class="hidden p-4 bg-red-50 text-red-600 text-xs font-medium rounded-2xl border border-red-100">
+                    <span id="errorText"></span>
+                </div>
+                
+                <div id="success" class="hidden p-4 bg-emerald-50 text-emerald-600 text-xs font-medium rounded-2xl border border-emerald-100">
+                    <span id="successText"></span>
+                </div>
+
+                <button type="submit" id="submit-btn" class="w-full py-5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-2xl shadow-xl shadow-indigo-100 transition-all active:scale-[0.98]">
+                    Register Hospital
+                </button>
+            </form>
+
+            <p class="mt-8 text-center text-slate-400 text-sm">
+                Already registered? <a href="/auth/login" class="text-indigo-600 font-bold hover:underline">Sign In</a>
+            </p>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('hospital-signup-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const submitBtn = document.getElementById('submit-btn');
+            const errorDiv = document.getElementById('error');
+            const errorText = document.getElementById('errorText');
+            const successDiv = document.getElementById('success');
+            const successText = document.getElementById('successText');
+            
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Registering...';
+            errorDiv.classList.add('hidden');
+            successDiv.classList.add('hidden');
+
+            const formData = new FormData(e.target);
+            //const data = Object.fromEntries(formData.entries());
+            //console.log(data);
+
+            try {
+                const response = await fetch('/signup/hospital/register', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(Object.fromEntries(formData.entries()))
+                    
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    successText.innerHTML = `✅ Registration Successful! <br><span class="text-slate-500">Hospital ID:</span> <b class="font-mono">${result.hospital_id}</b>. <br>Redirecting to login...`;
+                    successDiv.classList.remove('hidden');
+                    setTimeout(() => window.location.href = '/auth/login', 3000);
+                } else {
+                    errorText.textContent = result.detail || 'Registration failed';
+                    errorDiv.classList.remove('hidden');
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Register Hospital';
+                }
+            } catch (error) {
+                errorText.textContent = 'Network error. Please try again.';
+                errorDiv.classList.remove('hidden');
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Register Hospital';
+            }
+        });
+    </script>
+</body>
+</html>

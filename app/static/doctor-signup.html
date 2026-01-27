@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Doctor Registration - Care Coordinator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        {%raw%}
+        body { font-family: 'Inter', sans-serif; }
+        .input-field { background-color: #f8fafc; border: 1px solid #f1f5f9; transition: all 0.2s; }
+        .input-field:focus { background-color: #fff; border-color: #6366f1; outline: none; box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1); }
+        {%endraw%}
+    </style>
+</head>
+<body class="bg-slate-50 min-h-screen flex items-center justify-center p-4">
+    <div class="w-full max-w-lg">
+        <div class="bg-white rounded-[2.5rem] shadow-2xl p-10 border border-slate-100">
+            <div class="text-center mb-10">
+                <div class="inline-flex items-center justify-center w-14 h-14 bg-indigo-600 rounded-2xl text-white font-bold text-xl mb-4 shadow-lg shadow-indigo-100">CC</div>
+                <h1 class="text-2xl font-bold text-slate-800">Care Coordinator</h1>
+                <p class="text-slate-400 text-sm mt-2">Join the network and let CeCe manage your bookings.</p>
+            </div>
+
+            <div id="registration-form-container">
+                <form id="signup-form" class="space-y-6">
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">Full Name</label>
+                            <input type="text" name="name" required class="w-full px-5 py-4 rounded-2xl text-sm input-field" placeholder="Dr. John Doe">
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">Specialty</label>
+                                <input type="text" name="specialty" required class="w-full px-5 py-4 rounded-2xl text-sm input-field" placeholder="E.g. Cardiology">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">Hospital ID</label>
+                                <input type="text" name="hospital_id" required class="w-full px-5 py-4 rounded-2xl text-sm input-field" value="{{hospital_id}}">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="pt-4 border-t border-slate-50">
+                        <div class="mb-4">
+                            <label class="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">Professional Email</label>
+                            <input type="email" name="email" required class="w-full px-5 py-4 rounded-2xl text-sm input-field" placeholder="dr.doe@clinic.com">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 ml-1">Create Password</label>
+                            <input type="password" name="password" required class="w-full px-5 py-4 rounded-2xl text-sm input-field" placeholder="••••••••">
+                        </div>
+                    </div>
+
+                    <div id="error-div" class="hidden p-4 bg-red-50 text-red-600 text-xs font-medium rounded-2xl border border-red-100">
+                        <span id="error-text"></span>
+                    </div>
+
+                    <button type="submit" id="submit-btn" class="w-full py-5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-2xl shadow-xl shadow-indigo-100 transition-all active:scale-[0.98]">
+                        Complete Registration
+                    </button>
+                </form>
+            </div>
+
+            <p class="mt-8 text-center text-slate-400 text-sm">
+                Already registered? <a href="/auth/login" class="text-indigo-600 font-bold hover:underline">Sign In</a>
+            </p>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('signup-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const submitBtn = document.getElementById('submit-btn');
+            const errorDiv = document.getElementById('error-div');
+            const errorText = document.getElementById('error-text');
+            
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Processing...';
+            errorDiv.classList.add('hidden');
+
+            try {
+                const formData = new FormData(e.target);
+                const response = await fetch('/signup/doctor/register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(Object.fromEntries(formData))
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    document.getElementById('registration-form-container').innerHTML = `
+                        <div class="text-center py-6">
+                            <div class="w-16 h-16 bg-emerald-50 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-6">
+                                <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
+                            </div>
+                            <h3 class="text-lg font-bold text-slate-800">Account Created!</h3>
+                            <p class="text-slate-500 text-sm mt-2 mb-8">CeCe is ready to handle patient bookings on your site. Connect your calendar to start.</p>
+                            
+                            <button onclick="window.location.href='/auth/calendar/connect?doctor_id=${result.doctor_id}'" 
+                                    class="w-full py-4 bg-indigo-600 text-white font-bold rounded-2xl mb-3 shadow-lg">
+                                Sync Google Calendar
+                            </button>
+                            <button onclick="window.location.href='/auth/login'" 
+                                    class="w-full py-4 bg-slate-50 text-slate-500 font-bold rounded-2xl">
+                                Go to Dashboard
+                            </button>
+                        </div>
+                    `;
+                } else {
+                    errorText.textContent = result.detail || 'Signup failed';
+                    errorDiv.classList.remove('hidden');
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Complete Registration';
+                }
+            } catch (error) {
+                errorText.textContent = 'Connection error. Please try again.';
+                errorDiv.classList.remove('hidden');
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Complete Registration';
+            }
+        });
+    </script>
+</body>
+</html>
