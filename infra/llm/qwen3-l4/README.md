@@ -44,9 +44,10 @@ chmod +x infra/llm/qwen3-l4/*.sh
 ./infra/llm/qwen3-l4/smoke-test.sh
 ```
 
-The cache job can be rerun safely after an interrupted download. Do not deploy
-the service until the job completes and writes `config.json` under the model
-directory.
+The cache job uses one downloader worker and 8 GiB of memory because GCS FUSE
+stages large Xet-hosted model shards before committing them to the bucket. It
+can be rerun safely after an interrupted download. Do not deploy the service
+until the job completes and writes `config.json` under the model directory.
 
 ## Chat behavior
 
