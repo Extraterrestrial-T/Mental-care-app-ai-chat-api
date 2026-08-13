@@ -17,7 +17,7 @@ steps:
         git clone https://github.com/vllm-project/vllm.git vllm
         cd vllm
         git checkout "${_VLLM_COMMIT}"
-        test "$(git rev-parse --short=10 HEAD)" = "${_VLLM_COMMIT}"
+        test "$(git rev-parse --short=9 HEAD)" = "${_VLLM_COMMIT}"
 
   - name: gcr.io/cloud-builders/docker
     dir: vllm
