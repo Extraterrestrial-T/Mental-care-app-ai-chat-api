@@ -12,7 +12,7 @@ set -euo pipefail
 # This job avoids Cloud Run's 240-second service startup-probe limit. It writes
 # a complete Hugging Face snapshot to Cloud Storage before the inference service
 # mounts that directory read-only.
-CACHE_COMMAND='pip install --no-cache-dir "huggingface_hub==0.32.0" && hf download "$MODEL_ID" --local-dir "/models/$MODEL_DIRECTORY"'
+CACHE_COMMAND='pip install --no-cache-dir "huggingface_hub==0.32.0" && huggingface-cli download "$MODEL_ID" --local-dir "/models/$MODEL_DIRECTORY"'
 
 gcloud beta run jobs deploy "$CACHE_JOB_NAME" \
   --image=python:3.11-slim \
