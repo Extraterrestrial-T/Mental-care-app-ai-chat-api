@@ -2,8 +2,8 @@
 
 This is a separate, clean deployment for the Corner Health inference endpoint.
 It does not use the failed Gemma image or source build. The scripts force the
-Qwen model ID so a `MODEL_ID` value left in Cloud Shell from an earlier Gemma
-deployment cannot change this service.
+Qwen model ID, model directory, and pinned runtime image so values left in
+Cloud Shell from earlier Gemma deployments cannot change this service.
 
 ## Chosen runtime
 

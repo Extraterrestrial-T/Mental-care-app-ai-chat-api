@@ -6,11 +6,12 @@ set -euo pipefail
 : "${SERVICE_NAME:=care-qwen3}"
 : "${SERVICE_ACCOUNT_ADDRESS:=care-llm-sa@${PROJECT_ID}.iam.gserviceaccount.com}"
 : "${MODEL_BUCKET:=lecunbuckett}"
-: "${MODEL_DIRECTORY:=qwen3-30b-a3b-bnb-4bit}"
-: "${MODEL_PATH:=/models/${MODEL_DIRECTORY}}"
-# Do not inherit MODEL_ID from earlier Gemma deployments in the Cloud Shell.
+# Do not inherit model or image values from earlier Gemma deployments in the
+# Cloud Shell. This script deploys one specific, pinned Qwen runtime.
+MODEL_DIRECTORY="qwen3-30b-a3b-bnb-4bit"
+MODEL_PATH="/models/${MODEL_DIRECTORY}"
 MODEL_ID="unsloth/Qwen3-30B-A3B-bnb-4bit"
-: "${IMAGE:=docker.io/vllm/vllm-openai@sha256:6cf9808ca8810fc6c3fd0451c2e7784fb224590d81f7db338e7eaf3c02a33d33}"
+IMAGE="docker.io/vllm/vllm-openai@sha256:6cf9808ca8810fc6c3fd0451c2e7784fb224590d81f7db338e7eaf3c02a33d33"
 
 gcloud storage ls "gs://${MODEL_BUCKET}/${MODEL_DIRECTORY}/config.json" \
   --project="$PROJECT_ID" >/dev/null
@@ -50,6 +51,6 @@ gcloud beta run deploy "$SERVICE_NAME" \
   --timeout=1400 \
   --service-account="$SERVICE_ACCOUNT_ADDRESS" \
   --add-volume="mount-path=/models,type=cloud-storage,bucket=$MODEL_BUCKET,readonly=true" \
-  --set-env-vars="HF_HOME=/tmp/huggingface,VLLM_USE_V1=0" \
+  --set-env-vars="HF_HOME=/tmp/huggingface" \
   --startup-probe=tcpSocket.port=8080,initialDelaySeconds=0,failureThreshold=24,timeoutSeconds=1,periodSeconds=10 \
   --args="$(IFS=','; echo "${CONTAINER_ARGS[*]}")"
