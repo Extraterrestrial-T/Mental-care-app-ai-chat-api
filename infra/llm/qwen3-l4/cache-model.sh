@@ -26,7 +26,7 @@ gcloud beta run jobs deploy "$CACHE_JOB_NAME" \
   --memory=4Gi \
   --service-account="$SERVICE_ACCOUNT_ADDRESS" \
   --add-volume="mount-path=/models,type=cloud-storage,bucket=$MODEL_BUCKET,readonly=false" \
-  --set-env-vars="HF_HOME=/models/.cache/huggingface" \
+  --set-env-vars="HF_HOME=/models/.cache/huggingface,MODEL_ID=$MODEL_ID,MODEL_DIRECTORY=$MODEL_DIRECTORY" \
   --set-secrets="HF_TOKEN=hf-token:latest"
 
 gcloud beta run jobs execute "$CACHE_JOB_NAME" \
