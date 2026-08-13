@@ -3,13 +3,13 @@ set -euo pipefail
 
 : "${PROJECT_ID:=mental-479910}"
 : "${REGION:=us-central1}"
-: "${CACHE_JOB_NAME:=cache-qwen3-30b-a3b}"
+: "${CACHE_JOB_NAME:=cache-qwen3-30b-gptq}"
 : "${SERVICE_ACCOUNT_ADDRESS:=care-llm-sa@${PROJECT_ID}.iam.gserviceaccount.com}"
 : "${MODEL_BUCKET:=lecunbuckett}"
-# Do not inherit a model ID or cache prefix from an earlier deployment. The
-# original prefix was populated with Gemma files before this job was isolated.
-MODEL_ID="unsloth/Qwen3-30B-A3B-bnb-4bit"
-MODEL_DIRECTORY="qwen3-30b-a3b-bnb-4bit-v2"
+# Qwen3-MoE's BitsAndBytes checkpoint crashes in vLLM 0.8.5. Use the official
+# GPTQ checkpoint with vLLM 0.9.1 and keep it in a new, isolated cache prefix.
+MODEL_ID="Qwen/Qwen3-30B-A3B-GPTQ-Int4"
+MODEL_DIRECTORY="qwen3-30b-a3b-gptq-int4-v1"
 
 # This job avoids Cloud Run's 240-second service startup-probe limit. It writes
 # a complete Hugging Face snapshot to Cloud Storage before the inference service

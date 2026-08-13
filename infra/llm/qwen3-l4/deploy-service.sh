@@ -3,33 +3,34 @@ set -euo pipefail
 
 : "${PROJECT_ID:=mental-479910}"
 : "${REGION:=us-central1}"
-: "${SERVICE_NAME:=care-qwen3}"
+: "${SERVICE_NAME:=care-qwen3-gptq}"
 : "${SERVICE_ACCOUNT_ADDRESS:=care-llm-sa@${PROJECT_ID}.iam.gserviceaccount.com}"
 : "${MODEL_BUCKET:=lecunbuckett}"
-# Do not inherit model or image values from earlier Gemma deployments in the
-# Cloud Shell. This script deploys one specific, pinned Qwen runtime.
-MODEL_DIRECTORY="qwen3-30b-a3b-bnb-4bit-v2"
+# Do not inherit model or image values from earlier deployments in Cloud Shell.
+# vLLM 0.9.1 supports the Qwen3 GPTQ MoE checkpoint; vLLM 0.8.5 does not
+# initialize the BitsAndBytes MoE quantizer and fails with quant_method=None.
+MODEL_DIRECTORY="qwen3-30b-a3b-gptq-int4-v1"
 MODEL_PATH="/models/${MODEL_DIRECTORY}"
-MODEL_ID="unsloth/Qwen3-30B-A3B-bnb-4bit"
-IMAGE="docker.io/vllm/vllm-openai@sha256:6cf9808ca8810fc6c3fd0451c2e7784fb224590d81f7db338e7eaf3c02a33d33"
+MODEL_ID="Qwen/Qwen3-30B-A3B-GPTQ-Int4"
+IMAGE="europe-west4-docker.pkg.dev/${PROJECT_ID}/care-images/vllm-qwen3-gptq-cu128-compat:v0.9.1"
 
 gcloud storage ls "gs://${MODEL_BUCKET}/${MODEL_DIRECTORY}/config.json" \
   --project="$PROJECT_ID" >/dev/null
 
-# vLLM 0.8.5's Docker entrypoint is the OpenAI API server itself. Pass API
-# server arguments directly; adding the `vllm serve` subcommand is invalid.
+# The vLLM image entrypoint is the OpenAI API server. Pass API server arguments
+# directly; do not add the `vllm serve` subcommand.
 CONTAINER_ARGS=(
   "--model=$MODEL_PATH"
   "--served-model-name=$MODEL_ID"
   "--host=0.0.0.0"
   "--port=8080"
-  "--dtype=bfloat16"
-  "--quantization=bitsandbytes"
-  "--load-format=bitsandbytes"
+  "--dtype=half"
+  "--quantization=gptq"
+  "--load-format=safetensors"
   "--max-model-len=2048"
   "--max-num-seqs=1"
   "--max-num-batched-tokens=2048"
-  "--gpu-memory-utilization=0.92"
+  "--gpu-memory-utilization=0.90"
   "--enforce-eager"
 )
 
