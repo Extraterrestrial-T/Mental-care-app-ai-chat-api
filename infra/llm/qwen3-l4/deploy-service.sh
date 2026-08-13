@@ -16,10 +16,10 @@ IMAGE="docker.io/vllm/vllm-openai@sha256:6cf9808ca8810fc6c3fd0451c2e7784fb224590
 gcloud storage ls "gs://${MODEL_BUCKET}/${MODEL_DIRECTORY}/config.json" \
   --project="$PROJECT_ID" >/dev/null
 
-# The image entrypoint is the `vllm` CLI, so `serve` must be its first argument.
+# vLLM 0.8.5's Docker entrypoint is the OpenAI API server itself. Pass API
+# server arguments directly; adding the `vllm serve` subcommand is invalid.
 CONTAINER_ARGS=(
-  "serve"
-  "$MODEL_PATH"
+  "--model=$MODEL_PATH"
   "--served-model-name=$MODEL_ID"
   "--host=0.0.0.0"
   "--port=8080"
