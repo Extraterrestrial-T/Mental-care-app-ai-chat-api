@@ -8,15 +8,16 @@ set -euo pipefail
 : "${MODEL_BUCKET:=lecunbuckett}"
 : "${MODEL_DIRECTORY:=qwen3-30b-a3b-bnb-4bit}"
 : "${MODEL_PATH:=/models/${MODEL_DIRECTORY}}"
-: "${MODEL_ID:=unsloth/Qwen3-30B-A3B-bnb-4bit}"
+# Do not inherit MODEL_ID from earlier Gemma deployments in the Cloud Shell.
+MODEL_ID="unsloth/Qwen3-30B-A3B-bnb-4bit"
 : "${IMAGE:=docker.io/vllm/vllm-openai@sha256:6cf9808ca8810fc6c3fd0451c2e7784fb224590d81f7db338e7eaf3c02a33d33}"
 
 gcloud storage ls "gs://${MODEL_BUCKET}/${MODEL_DIRECTORY}/config.json" \
   --project="$PROJECT_ID" >/dev/null
 
-# The Docker image entrypoint already starts vLLM's OpenAI API server. Do not
-# override it with `vllm serve`; Cloud Run only needs the server flags below.
+# The image entrypoint is the `vllm` CLI, so `serve` must be its first argument.
 CONTAINER_ARGS=(
+  "serve"
   "--model=$MODEL_PATH"
   "--served-model-name=$MODEL_ID"
   "--host=0.0.0.0"

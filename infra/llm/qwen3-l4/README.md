@@ -1,7 +1,9 @@
 # Qwen3 30B-A3B on a Cloud Run L4
 
 This is a separate, clean deployment for the Corner Health inference endpoint.
-It does not use the failed Gemma image or source build.
+It does not use the failed Gemma image or source build. The scripts force the
+Qwen model ID so a `MODEL_ID` value left in Cloud Shell from an earlier Gemma
+deployment cannot change this service.
 
 ## Chosen runtime
 
