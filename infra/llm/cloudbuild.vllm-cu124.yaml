@@ -19,13 +19,42 @@ steps:
         git checkout "${_VLLM_COMMIT}"
         test "$(git rev-parse --short=9 HEAD)" = "${_VLLM_COMMIT}"
 
+  # The pinned vLLM Dockerfile unconditionally builds DeepEP for CUDA 13-only
+  # architectures. That optional expert-parallel extension is not used by this
+  # single-L4 deployment and cannot compile against the CUDA 12.4 PyTorch build.
+  - name: gcr.io/cloud-builders/git
+    dir: vllm
+    entrypoint: bash
+    args:
+      - -ceu
+      - |
+        awk '
+          /COPY --from=extensions-build \/tmp\/ep_kernels_workspace\/dist/ {
+            print "RUN mkdir -p /tmp/ep_kernels_workspace/dist"
+            next
+          }
+          /^RUN --mount=type=bind,from=build,src=\/tmp\/ep_kernels_workspace\/dist/ {
+            print "RUN true"
+            skip = 1
+            next
+          }
+          skip {
+            if ($0 ~ /\\$/) next
+            skip = 0
+            next
+          }
+          { print }
+        ' docker/Dockerfile > docker/Dockerfile.cu124
+        test "$(grep -c 'COPY --from=extensions-build' docker/Dockerfile.cu124)" = 0
+        test "$(grep -c 'from=build,src=/tmp/ep_kernels_workspace/dist' docker/Dockerfile.cu124)" = 0
+
   - name: gcr.io/cloud-builders/docker
     dir: vllm
     env:
       - DOCKER_BUILDKIT=1
     args:
       - build
-      - --file=docker/Dockerfile
+      - --file=docker/Dockerfile.cu124
       - --target=vllm-openai
       - --build-arg=CUDA_VERSION=12.4.1
       - --build-arg=torch_cuda_arch_list=8.9

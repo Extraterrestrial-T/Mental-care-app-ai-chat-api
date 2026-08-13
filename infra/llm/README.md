@@ -26,6 +26,9 @@ europe-west4-docker.pkg.dev/mental-479910/care-images/vllm-gemma4-cu124:9b4e839
 
 The first build is intentionally expensive and can take up to two hours. It
 builds vLLM CUDA extensions from source without precompiled CUDA 12.9 wheels.
+The build skips vLLM's optional DeepEP expert-parallel extension: its pinned
+Docker stage compiles against CUDA 13 even when the main build is CUDA 12.4.
+DeepEP is not used for the single-L4, one-sequence Gemma deployment.
 
 ## Verify CUDA before deploying the model
 
