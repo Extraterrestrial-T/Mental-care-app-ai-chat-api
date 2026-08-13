@@ -20,6 +20,9 @@ with about 3B active parameters. Its 4-bit weights fit on an L4 with a small
 context window, but there is little spare VRAM; do not raise concurrency or
 context length before measuring production memory use.
 
+The image's vLLM version predates `--disable-log-requests`, so that newer flag
+is intentionally not passed to this service.
+
 The model cache job writes the Hugging Face snapshot to the existing Cloud
 Storage bucket. The serving service mounts the snapshot read-only. This avoids
 trying to download roughly 17.5 GB during Cloud Run's four-minute startup

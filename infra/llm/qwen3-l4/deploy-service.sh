@@ -18,7 +18,7 @@ gcloud storage ls "gs://${MODEL_BUCKET}/${MODEL_DIRECTORY}/config.json" \
 # The image entrypoint is the `vllm` CLI, so `serve` must be its first argument.
 CONTAINER_ARGS=(
   "serve"
-  "--model=$MODEL_PATH"
+  "$MODEL_PATH"
   "--served-model-name=$MODEL_ID"
   "--host=0.0.0.0"
   "--port=8080"
@@ -30,7 +30,6 @@ CONTAINER_ARGS=(
   "--max-num-batched-tokens=2048"
   "--gpu-memory-utilization=0.92"
   "--enforce-eager"
-  "--disable-log-requests"
 )
 
 gcloud beta run deploy "$SERVICE_NAME" \
