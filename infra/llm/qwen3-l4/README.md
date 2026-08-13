@@ -26,7 +26,8 @@ is intentionally not passed to this service.
 The model cache job writes the Hugging Face snapshot to the existing Cloud
 Storage bucket. The serving service mounts the snapshot read-only. This avoids
 trying to download roughly 17.5 GB during Cloud Run's four-minute startup
-probe window.
+probe window. It uses the `qwen3-30b-a3b-bnb-4bit-v2` prefix because the
+earlier unversioned prefix was accidentally populated with Gemma files.
 
 ## Prerequisites
 
@@ -53,6 +54,13 @@ The cache job uses one downloader worker and 8 GiB of memory because GCS FUSE
 stages large Xet-hosted model shards before committing them to the bucket. It
 can be rerun safely after an interrupted download. Do not deploy the service
 until the job completes and writes `config.json` under the model directory.
+
+After this Qwen service passes the smoke test, remove the incorrect earlier
+cache to avoid storage charges:
+
+```bash
+gcloud storage rm --recursive gs://lecunbuckett/qwen3-30b-a3b-bnb-4bit
+```
 
 ## Chat behavior
 

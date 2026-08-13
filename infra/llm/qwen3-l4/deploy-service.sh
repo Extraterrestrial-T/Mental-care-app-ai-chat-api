@@ -8,7 +8,7 @@ set -euo pipefail
 : "${MODEL_BUCKET:=lecunbuckett}"
 # Do not inherit model or image values from earlier Gemma deployments in the
 # Cloud Shell. This script deploys one specific, pinned Qwen runtime.
-MODEL_DIRECTORY="qwen3-30b-a3b-bnb-4bit"
+MODEL_DIRECTORY="qwen3-30b-a3b-bnb-4bit-v2"
 MODEL_PATH="/models/${MODEL_DIRECTORY}"
 MODEL_ID="unsloth/Qwen3-30B-A3B-bnb-4bit"
 IMAGE="docker.io/vllm/vllm-openai@sha256:6cf9808ca8810fc6c3fd0451c2e7784fb224590d81f7db338e7eaf3c02a33d33"

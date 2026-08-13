@@ -6,8 +6,10 @@ set -euo pipefail
 : "${CACHE_JOB_NAME:=cache-qwen3-30b-a3b}"
 : "${SERVICE_ACCOUNT_ADDRESS:=care-llm-sa@${PROJECT_ID}.iam.gserviceaccount.com}"
 : "${MODEL_BUCKET:=lecunbuckett}"
-: "${MODEL_ID:=unsloth/Qwen3-30B-A3B-bnb-4bit}"
-: "${MODEL_DIRECTORY:=qwen3-30b-a3b-bnb-4bit}"
+# Do not inherit a model ID or cache prefix from an earlier deployment. The
+# original prefix was populated with Gemma files before this job was isolated.
+MODEL_ID="unsloth/Qwen3-30B-A3B-bnb-4bit"
+MODEL_DIRECTORY="qwen3-30b-a3b-bnb-4bit-v2"
 
 # This job avoids Cloud Run's 240-second service startup-probe limit. It writes
 # a complete Hugging Face snapshot to Cloud Storage before the inference service
