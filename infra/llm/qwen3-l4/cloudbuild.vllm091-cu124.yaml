@@ -6,12 +6,12 @@ substitutions:
 
 steps:
   - name: gcr.io/cloud-builders/git
+    entrypoint: bash
     args:
-      - clone
-      - --branch=v0.9.1
-      - --depth=1
-      - https://github.com/vllm-project/vllm.git
-      - vllm
+      - -ceu
+      - |
+        git clone --branch=v0.9.1 --depth=1 https://github.com/vllm-project/vllm.git vllm
+        sed -i '1i# syntax=docker/dockerfile:1.4' vllm/docker/Dockerfile
   - name: gcr.io/cloud-builders/docker
     env:
       - DOCKER_BUILDKIT=1
