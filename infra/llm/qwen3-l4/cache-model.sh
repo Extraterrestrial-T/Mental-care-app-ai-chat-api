@@ -3,13 +3,13 @@ set -euo pipefail
 
 : "${PROJECT_ID:=mental-479910}"
 : "${REGION:=us-central1}"
-: "${CACHE_JOB_NAME:=cache-qwen3-32b}"
+: "${CACHE_JOB_NAME:=cache-qwen3-14b}"
 : "${SERVICE_ACCOUNT_ADDRESS:=care-llm-sa@${PROJECT_ID}.iam.gserviceaccount.com}"
 : "${MODEL_BUCKET:=lecunbuckett}"
 # This dense model avoids the FusedMoE BitsAndBytes failure from the 30B-A3B
 # checkpoint. Keep the snapshot in a new prefix so no earlier cache is reused.
-MODEL_ID="unsloth/Qwen3-32B-bnb-4bit"
-MODEL_DIRECTORY="qwen3-32b-bnb-4bit-v1"
+MODEL_ID="unsloth/Qwen3-14B-bnb-4bit"
+MODEL_DIRECTORY="qwen3-14b-bnb-4bit-v1"
 
 # This job avoids Cloud Run's 240-second service startup-probe limit. It writes
 # a complete Hugging Face snapshot to Cloud Storage before the inference service

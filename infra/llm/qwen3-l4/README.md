@@ -1,24 +1,23 @@
-# Qwen3 32B Dense on a Cloud Run L4
+# Qwen3 14B Dense on a Cloud Run L4
 
-This deployment uses Qwen3's dense 32B model for the Corner Health inference
+This deployment uses Qwen3's dense 14B model for the Corner Health inference
 endpoint. It replaces the failed 30B-A3B mixture-of-experts deployment without
 requiring a custom vLLM engine build.
 
 ## Chosen runtime
 
-- Model: `unsloth/Qwen3-32B-bnb-4bit`
+- Model: `unsloth/Qwen3-14B-bnb-4bit`
 - Runtime image: vLLM `v0.8.5`, pinned by digest, with a small startup proxy
 - CUDA runtime: 12.4, validated against the Cloud Run L4 before model loading
 - GPU: one Cloud Run NVIDIA L4 (24 GB VRAM)
 - Capacity: one request and one vLLM sequence at a time
-- Context window: 1,024 tokens initially
+- Context window: 4,096 tokens initially
 
 The earlier Qwen3 30B-A3B deployment reached model initialization but failed
 with `FusedMoE ... quant_method is not None`: an unsupported BitsAndBytes MoE
-path in vLLM 0.8.5. Qwen3-32B is dense, so it does not use that path. Qwen
-documents Qwen3-32B for vLLM 0.8.5 or newer. Its 4-bit weights are close to an
-L4's 24-GiB VRAM limit, so this deployment deliberately starts with one
-sequence and a 1,024-token context window.
+path in vLLM 0.8.5. Qwen3-14B is dense, so it does not use that path. Qwen
+documents Qwen3-14B for vLLM 0.8.5 or newer. Its 4-bit weights leave room for
+one sequence and a 4,096-token context window on an L4.
 
 The vLLM Docker entrypoint is its OpenAI API server. The deployment passes
 `--model=/models/...` directly and must not add `vllm serve` to the container
@@ -33,7 +32,7 @@ as a model error.
 The model cache job writes the Hugging Face snapshot to the existing Cloud
 Storage bucket. The serving service mounts the snapshot read-only. This avoids
 downloading the model during Cloud Run's four-minute startup probe window. It
-uses the new `qwen3-32b-bnb-4bit-v1` prefix so its files cannot mix with
+uses the new `qwen3-14b-bnb-4bit-v1` prefix so its files cannot mix with
 earlier Gemma, MoE, or GPTQ caches.
 
 ## Prerequisites
@@ -84,6 +83,6 @@ chatbot.
 
 - The diagnostic deployment must print CUDA `12.4`, `True`, and `1`, with no
   CUDA 803 error. Do not cache or deploy the model if it does not.
-- If model loading runs out of VRAM at 1,024 tokens and 0.90 utilization, this
-  32B 4-bit checkpoint is not viable on one L4. Do not increase Cloud Run
-  concurrency or context length before it has a successful smoke test.
+- If model loading runs out of VRAM at 4,096 tokens and 0.90 utilization,
+  reduce `--max-model-len` to `2048`. Do not increase Cloud Run concurrency
+  before it has a successful smoke test.
