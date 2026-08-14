@@ -7,8 +7,8 @@ checkpoint with the official GPTQ Int4 checkpoint.
 ## Chosen runtime
 
 - Model: `Qwen/Qwen3-30B-A3B-GPTQ-Int4`
-- Runtime image: custom `vllm/vllm-openai:v0.9.1` with `cuda-compat-12-8`
-- CUDA runtime: 12.8, validated against the Cloud Run L4 before model loading
+- Runtime image: vLLM `v0.9.1`, built from source against CUDA 12.4.1
+- CUDA runtime: 12.4, validated against the Cloud Run L4 before model loading
 - GPU: one Cloud Run NVIDIA L4 (24 GB VRAM)
 - Capacity: one request and one vLLM sequence at a time
 - Context window: 2,048 tokens
@@ -47,7 +47,7 @@ From the repository root in Cloud Shell:
 chmod +x infra/llm/qwen3-l4/*.sh
 gcloud builds submit \\
   --project=mental-479910 \\
-  --config=infra/llm/qwen3-l4/cloudbuild.vllm091-cu128.yaml \\
+  --config=infra/llm/qwen3-l4/cloudbuild.vllm091-cu124.yaml \\
   infra/llm/qwen3-l4
 ./infra/llm/qwen3-l4/deploy-diagnostic.sh
 ./infra/llm/qwen3-l4/cache-model.sh
@@ -59,6 +59,10 @@ The cache job uses one downloader worker and 8 GiB of memory because GCS FUSE
 stages large Xet-hosted model shards before committing them to the bucket. It
 can be rerun safely after an interrupted download. Do not deploy the service
 until the job completes and writes `config.json` under the model directory.
+
+The image build compiles vLLM and FlashInfer for L4 architecture `8.9`. It uses
+an 8-vCPU / 32-GiB Cloud Build worker for up to one hour, but has no GPU cost.
+Wait for the diagnostic before spending time or storage on the model cache.
 
 Only after this Qwen service passes the smoke test, remove the incorrect old
 caches to avoid storage charges:
@@ -77,7 +81,7 @@ chatbot.
 
 ## Failure handling
 
-- The diagnostic deployment must print CUDA `12.8`, `True`, and `1`, with no
+- The diagnostic deployment must print CUDA `12.4`, `True`, and `1`, with no
   CUDA 803 error. Do not cache or deploy the model if it does not.
 - If model loading runs out of VRAM, reduce `--max-model-len` and
   `--max-num-batched-tokens` to `1024`. If it still fails, the 30B GPTQ model

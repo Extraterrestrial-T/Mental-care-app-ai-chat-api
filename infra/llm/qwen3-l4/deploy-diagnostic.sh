@@ -6,7 +6,7 @@ set -euo pipefail
 : "${SERVICE_NAME:=care-qwen3-gptq-diagnostic}"
 : "${SERVICE_ACCOUNT_ADDRESS:=care-llm-sa@${PROJECT_ID}.iam.gserviceaccount.com}"
 
-IMAGE="europe-west4-docker.pkg.dev/${PROJECT_ID}/care-images/vllm-qwen3-gptq-cu128-compat:v0.9.1"
+IMAGE="europe-west4-docker.pkg.dev/${PROJECT_ID}/care-images/vllm-qwen3-gptq-cu124:v0.9.1"
 DIAGNOSTIC_COMMAND='set -e; python3 -c "import torch; print(torch.__version__); print(torch.version.cuda); print(torch.cuda.is_available()); print(torch.cuda.device_count()); assert torch.cuda.is_available(); assert torch.cuda.device_count() == 1"; exec python3 -m http.server 8080'
 
 gcloud beta run deploy "$SERVICE_NAME" \

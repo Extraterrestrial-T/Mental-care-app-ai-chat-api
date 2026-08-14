@@ -12,7 +12,7 @@ set -euo pipefail
 MODEL_DIRECTORY="qwen3-30b-a3b-gptq-int4-v1"
 MODEL_PATH="/models/${MODEL_DIRECTORY}"
 MODEL_ID="Qwen/Qwen3-30B-A3B-GPTQ-Int4"
-IMAGE="europe-west4-docker.pkg.dev/${PROJECT_ID}/care-images/vllm-qwen3-gptq-cu128-compat:v0.9.1"
+IMAGE="europe-west4-docker.pkg.dev/${PROJECT_ID}/care-images/vllm-qwen3-gptq-cu124:v0.9.1"
 
 gcloud storage ls "gs://${MODEL_BUCKET}/${MODEL_DIRECTORY}/config.json" \
   --project="$PROJECT_ID" >/dev/null

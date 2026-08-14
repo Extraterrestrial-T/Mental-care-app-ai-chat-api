@@ -1,0 +1,38 @@
+substitutions:
+  _REGION: europe-west4
+  _REPOSITORY: care-images
+  _IMAGE_NAME: vllm-qwen3-gptq-cu124
+  _TAG: v0.9.1
+
+steps:
+  - name: gcr.io/cloud-builders/git
+    args:
+      - clone
+      - --branch=v0.9.1
+      - --depth=1
+      - https://github.com/vllm-project/vllm.git
+      - vllm
+  - name: gcr.io/cloud-builders/docker
+    env:
+      - DOCKER_BUILDKIT=1
+    args:
+      - build
+      - --progress=plain
+      - --target=vllm-openai
+      - --build-arg=CUDA_VERSION=12.4.1
+      - --build-arg=torch_cuda_arch_list=8.9
+      - --build-arg=vllm_fa_cmake_gpu_arches=89-real
+      - --build-arg=max_jobs=2
+      - --build-arg=nvcc_threads=2
+      - --tag=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE_NAME}:${_TAG}
+      - --file=vllm/docker/Dockerfile
+      - vllm
+
+images:
+  - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE_NAME}:${_TAG}
+
+options:
+  machineType: E2_STANDARD_8
+  logging: CLOUD_LOGGING_ONLY
+
+timeout: 3600s
