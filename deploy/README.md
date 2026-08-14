@@ -74,3 +74,53 @@ GCP_SERVICE_ACCOUNT=github-deploy@mental-479910.iam.gserviceaccount.com
 The service account used by GitHub must be able to use OS Login on the VM, and
 the VM must have OS Login enabled for IAP deployments. After this setup, every
 push to `main` builds, indexes, and deploys without logging into the VM.
+
+Run the following once from Cloud Shell, replacing the VM values. It creates a
+GitHub-only federated identity and grants the minimum roles used by the
+workflow:
+
+```bash
+export PROJECT_ID=mental-479910
+export PROJECT_NUMBER="$(gcloud projects describe "$PROJECT_ID" --format='value(projectNumber)')"
+export REGION=us-east1
+export REPOSITORY=my-repo
+export GITHUB_REPOSITORY=Extraterrestrial-T/Mental-care-app-ai-chat-api
+export DEPLOY_SA=github-deploy
+export POOL_ID=github
+export PROVIDER_ID=github
+export VM_NAME=your-vm-name
+export VM_ZONE=your-vm-zone
+
+gcloud iam service-accounts create "$DEPLOY_SA" --project="$PROJECT_ID"
+gcloud iam workload-identity-pools create "$POOL_ID" \
+  --project="$PROJECT_ID" --location=global --display-name="GitHub Actions"
+gcloud iam workload-identity-pools providers create-oidc "$PROVIDER_ID" \
+  --project="$PROJECT_ID" --location=global --workload-identity-pool="$POOL_ID" \
+  --display-name="GitHub Actions" \
+  --issuer-uri="https://token.actions.githubusercontent.com" \
+  --attribute-mapping="google.subject=assertion.sub,attribute.repository=assertion.repository" \
+  --attribute-condition="assertion.repository=='$GITHUB_REPOSITORY'"
+
+gcloud iam service-accounts add-iam-policy-binding \
+  "$DEPLOY_SA@$PROJECT_ID.iam.gserviceaccount.com" --project="$PROJECT_ID" \
+  --role=roles/iam.workloadIdentityUser \
+  --member="principalSet://iam.googleapis.com/projects/$PROJECT_NUMBER/locations/global/workloadIdentityPools/$POOL_ID/attribute.repository/$GITHUB_REPOSITORY"
+gcloud artifacts repositories add-iam-policy-binding "$REPOSITORY" \
+  --project="$PROJECT_ID" --location="$REGION" \
+  --member="serviceAccount:$DEPLOY_SA@$PROJECT_ID.iam.gserviceaccount.com" \
+  --role=roles/artifactregistry.writer
+
+for ROLE in roles/iap.tunnelResourceAccessor roles/compute.osAdminLogin roles/compute.viewer; do
+  gcloud projects add-iam-policy-binding "$PROJECT_ID" \
+    --member="serviceAccount:$DEPLOY_SA@$PROJECT_ID.iam.gserviceaccount.com" \
+    --role="$ROLE"
+done
+gcloud compute instances add-metadata "$VM_NAME" --project="$PROJECT_ID" \
+  --zone="$VM_ZONE" --metadata=enable-oslogin=TRUE
+```
+
+Set `GCP_WORKLOAD_IDENTITY_PROVIDER` to:
+
+```text
+projects/PROJECT_NUMBER/locations/global/workloadIdentityPools/github/providers/github
+```
