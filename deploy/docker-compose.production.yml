@@ -1,0 +1,74 @@
+services:
+  app:
+    image: ${APP_IMAGE:?APP_IMAGE must be set in .release.env}
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      ENVIRONMENT: production
+      PORT: "8000"
+      BASE_URL: https://${APP_DOMAIN:?APP_DOMAIN must be set in .env}
+      FRONTEND_URL: https://${APP_DOMAIN:?APP_DOMAIN must be set in .env}
+      RAG_INDEX_DIR: /data/rag-index
+      HF_HOME: /data/huggingface
+      SENTENCE_TRANSFORMERS_HOME: /data/sentence-transformers
+      TOKENIZERS_PARALLELISM: "false"
+      GOOGLE_APPLICATION_CREDENTIALS: /run/secrets/firebase-service-account.json
+      GOOGLE_CLIENT_SECRETS_FILE: /run/secrets/google-oauth-client.json
+    volumes:
+      - rag-index:/data/rag-index
+      - huggingface-cache:/data/huggingface
+      - ${FIREBASE_CREDENTIALS_PATH:?FIREBASE_CREDENTIALS_PATH must be set in .env}:/run/secrets/firebase-service-account.json:ro
+      - ${GOOGLE_CLIENT_SECRETS_PATH:?GOOGLE_CLIENT_SECRETS_PATH must be set in .env}:/run/secrets/google-oauth-client.json:ro
+    expose:
+      - "8000"
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=5).read()
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 45s
+
+  rag-indexer:
+    image: ${APP_IMAGE:?APP_IMAGE must be set in .release.env}
+    profiles:
+      - index
+    env_file:
+      - .env
+    environment:
+      RAG_INDEX_DIR: /data/rag-index
+      HF_HOME: /data/huggingface
+      SENTENCE_TRANSFORMERS_HOME: /data/sentence-transformers
+      TOKENIZERS_PARALLELISM: "false"
+      REBUILD_RAG_INDEX: "false"
+    volumes:
+      - rag-index:/data/rag-index
+      - huggingface-cache:/data/huggingface
+    command: ["python", "deploy/rebuild_rag_index.py"]
+
+  caddy:
+    image: caddy:2.8-alpine
+    restart: unless-stopped
+    depends_on:
+      app:
+        condition: service_healthy
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN:?APP_DOMAIN must be set in .env}
+      ACME_EMAIL: ${ACME_EMAIL:?ACME_EMAIL must be set in .env}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
+volumes:
+  rag-index:
+  huggingface-cache:
+  caddy-data:
+  caddy-config:

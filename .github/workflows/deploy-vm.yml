@@ -1,0 +1,90 @@
+name: Build and deploy API to VM
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: production-vm-deploy
+  cancel-in-progress: false
+
+env:
+  PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+  GAR_LOCATION: ${{ vars.GAR_LOCATION }}
+  GAR_REPOSITORY: ${{ vars.GAR_REPOSITORY }}
+  VM_NAME: ${{ vars.VM_NAME }}
+  VM_ZONE: ${{ vars.VM_ZONE }}
+  VM_DEPLOY_DIR: ${{ vars.VM_DEPLOY_DIR }}
+
+jobs:
+  deploy:
+    name: Build and deploy
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Check Python syntax
+        run: python -m compileall -q app
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Authenticate Docker to Artifact Registry
+        run: gcloud auth configure-docker "${GAR_LOCATION}-docker.pkg.dev" --quiet
+
+      - name: Build and push application image
+        id: image
+        env:
+          IMAGE: ${{ vars.GAR_LOCATION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ vars.GAR_REPOSITORY }}/mental-care-app
+        run: |
+          docker build \
+            --tag "${IMAGE}:${GITHUB_SHA}" \
+            --tag "${IMAGE}:main" \
+            .
+          docker push "${IMAGE}:${GITHUB_SHA}"
+          docker push "${IMAGE}:main"
+          echo "reference=${IMAGE}:${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
+
+      - name: Copy deployment configuration to the VM
+        run: |
+          gcloud compute scp \
+            --project="$PROJECT_ID" \
+            --zone="$VM_ZONE" \
+            --tunnel-through-iap \
+            deploy/docker-compose.production.yml deploy/Caddyfile \
+            "${VM_NAME}:${VM_DEPLOY_DIR}/"
+
+      - name: Refresh RAG index and roll out the image
+        env:
+          IMAGE: ${{ steps.image.outputs.reference }}
+        run: |
+          REMOTE_COMMAND=$(cat <<EOF
+          set -euo pipefail
+          cd '${VM_DEPLOY_DIR}'
+          printf 'APP_IMAGE=%s\\n' '${IMAGE}' > .release.env
+          docker compose --env-file .env --env-file .release.env pull app rag-indexer
+          docker compose --env-file .env --env-file .release.env stop app
+          docker compose --env-file .env --env-file .release.env --profile index run --rm rag-indexer
+          docker compose --env-file .env --env-file .release.env up -d --remove-orphans
+          docker image prune -f
+          EOF
+          )
+          gcloud compute ssh "$VM_NAME" \
+            --project="$PROJECT_ID" \
+            --zone="$VM_ZONE" \
+            --tunnel-through-iap \
+            --command="$REMOTE_COMMAND"
