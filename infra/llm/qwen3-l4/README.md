@@ -2,12 +2,12 @@
 
 This deployment uses Qwen3's dense 32B model for the Corner Health inference
 endpoint. It replaces the failed 30B-A3B mixture-of-experts deployment without
-requiring a custom vLLM image build.
+requiring a custom vLLM engine build.
 
 ## Chosen runtime
 
 - Model: `unsloth/Qwen3-32B-bnb-4bit`
-- Runtime image: vLLM `v0.8.5`, pinned by digest
+- Runtime image: vLLM `v0.8.5`, pinned by digest, with a small startup proxy
 - CUDA runtime: 12.4, validated against the Cloud Run L4 before model loading
 - GPU: one Cloud Run NVIDIA L4 (24 GB VRAM)
 - Capacity: one request and one vLLM sequence at a time
@@ -23,6 +23,12 @@ sequence and a 1,024-token context window.
 The vLLM Docker entrypoint is its OpenAI API server. The deployment passes
 `--model=/models/...` directly and must not add `vllm serve` to the container
 arguments.
+
+Cloud Run limits startup probes to 240 seconds. Reading this model from GCS
+FUSE takes longer, so the proxy opens the public port immediately and starts
+vLLM on a private port. Until model loading completes, it returns HTTP 503 with
+`Retry-After: 15`; the application must retry rather than treating that response
+as a model error.
 
 The model cache job writes the Hugging Face snapshot to the existing Cloud
 Storage bucket. The serving service mounts the snapshot read-only. This avoids
@@ -44,6 +50,10 @@ From the repository root in Cloud Shell:
 
 ```bash
 chmod +x infra/llm/qwen3-l4/*.sh
+gcloud builds submit \\
+  --project=mental-479910 \\
+  --config=infra/llm/qwen3-l4/cloudbuild.startup-proxy.yaml \\
+  infra/llm/qwen3-l4
 ./infra/llm/qwen3-l4/deploy-diagnostic.sh
 ./infra/llm/qwen3-l4/cache-model.sh
 ./infra/llm/qwen3-l4/deploy-service.sh

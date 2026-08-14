@@ -11,18 +11,16 @@ set -euo pipefail
 MODEL_DIRECTORY="qwen3-32b-bnb-4bit-v1"
 MODEL_PATH="/models/${MODEL_DIRECTORY}"
 MODEL_ID="unsloth/Qwen3-32B-bnb-4bit"
-IMAGE="docker.io/vllm/vllm-openai@sha256:6cf9808ca8810fc6c3fd0451c2e7784fb224590d81f7db338e7eaf3c02a33d33"
+IMAGE="europe-west4-docker.pkg.dev/${PROJECT_ID}/care-images/vllm-qwen3-startup-proxy:v0.8.5-cu124"
 
 gcloud storage ls "gs://${MODEL_BUCKET}/${MODEL_DIRECTORY}/config.json" \
   --project="$PROJECT_ID" >/dev/null
 
-# The vLLM image entrypoint is the OpenAI API server. Pass API server arguments
-# directly; do not add the `vllm serve` subcommand.
+# The proxy keeps Cloud Run's public port open while vLLM loads from GCS FUSE.
+# It forwards requests to the private vLLM server once that server is ready.
 CONTAINER_ARGS=(
   "--model=$MODEL_PATH"
   "--served-model-name=$MODEL_ID"
-  "--host=0.0.0.0"
-  "--port=8080"
   "--dtype=bfloat16"
   "--quantization=bitsandbytes"
   "--load-format=bitsandbytes"
