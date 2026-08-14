@@ -3,16 +3,15 @@ set -euo pipefail
 
 : "${PROJECT_ID:=mental-479910}"
 : "${REGION:=us-central1}"
-: "${SERVICE_NAME:=care-qwen3-gptq}"
+: "${SERVICE_NAME:=care-qwen3-32b}"
 : "${SERVICE_ACCOUNT_ADDRESS:=care-llm-sa@${PROJECT_ID}.iam.gserviceaccount.com}"
 : "${MODEL_BUCKET:=lecunbuckett}"
 # Do not inherit model or image values from earlier deployments in Cloud Shell.
-# vLLM 0.9.1 supports the Qwen3 GPTQ MoE checkpoint; vLLM 0.8.5 does not
-# initialize the BitsAndBytes MoE quantizer and fails with quant_method=None.
-MODEL_DIRECTORY="qwen3-30b-a3b-gptq-int4-v1"
+# The dense 32B checkpoint avoids vLLM 0.8.5's BitsAndBytes MoE limitation.
+MODEL_DIRECTORY="qwen3-32b-bnb-4bit-v1"
 MODEL_PATH="/models/${MODEL_DIRECTORY}"
-MODEL_ID="Qwen/Qwen3-30B-A3B-GPTQ-Int4"
-IMAGE="europe-west4-docker.pkg.dev/${PROJECT_ID}/care-images/vllm-qwen3-gptq-cu124:v0.9.1"
+MODEL_ID="unsloth/Qwen3-32B-bnb-4bit"
+IMAGE="docker.io/vllm/vllm-openai@sha256:6cf9808ca8810fc6c3fd0451c2e7784fb224590d81f7db338e7eaf3c02a33d33"
 
 gcloud storage ls "gs://${MODEL_BUCKET}/${MODEL_DIRECTORY}/config.json" \
   --project="$PROJECT_ID" >/dev/null
@@ -24,12 +23,12 @@ CONTAINER_ARGS=(
   "--served-model-name=$MODEL_ID"
   "--host=0.0.0.0"
   "--port=8080"
-  "--dtype=half"
-  "--quantization=gptq"
-  "--load-format=safetensors"
-  "--max-model-len=2048"
+  "--dtype=bfloat16"
+  "--quantization=bitsandbytes"
+  "--load-format=bitsandbytes"
+  "--max-model-len=1024"
   "--max-num-seqs=1"
-  "--max-num-batched-tokens=2048"
+  "--max-num-batched-tokens=1024"
   "--gpu-memory-utilization=0.90"
   "--enforce-eager"
 )

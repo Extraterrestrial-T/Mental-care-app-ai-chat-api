@@ -3,10 +3,10 @@ set -euo pipefail
 
 : "${PROJECT_ID:=mental-479910}"
 : "${REGION:=us-central1}"
-: "${SERVICE_NAME:=care-qwen3-gptq}"
+: "${SERVICE_NAME:=care-qwen3-32b}"
 # Keep the requested API model aligned with the dedicated service even if
 # Cloud Shell still has MODEL_ID set from a prior deployment.
-MODEL_ID="Qwen/Qwen3-30B-A3B-GPTQ-Int4"
+MODEL_ID="unsloth/Qwen3-32B-bnb-4bit"
 
 SERVICE_URL="$(gcloud run services describe "$SERVICE_NAME" \
   --project="$PROJECT_ID" \
