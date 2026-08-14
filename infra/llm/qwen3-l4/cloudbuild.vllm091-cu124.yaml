@@ -22,8 +22,8 @@ steps:
       - --build-arg=CUDA_VERSION=12.4.1
       - --build-arg=torch_cuda_arch_list=8.9
       - --build-arg=vllm_fa_cmake_gpu_arches=89-real
-      - --build-arg=max_jobs=2
-      - --build-arg=nvcc_threads=2
+      - --build-arg=max_jobs=1
+      - --build-arg=nvcc_threads=1
       - --tag=${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE_NAME}:${_TAG}
       - --file=vllm/docker/Dockerfile
       - vllm
@@ -32,7 +32,7 @@ images:
   - ${_REGION}-docker.pkg.dev/$PROJECT_ID/${_REPOSITORY}/${_IMAGE_NAME}:${_TAG}
 
 options:
-  machineType: E2_STANDARD_8
+  machineType: E2_HIGHCPU_8
   logging: CLOUD_LOGGING_ONLY
 
 timeout: 3600s

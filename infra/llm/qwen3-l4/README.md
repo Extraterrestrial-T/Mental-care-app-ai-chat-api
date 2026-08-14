@@ -60,9 +60,10 @@ stages large Xet-hosted model shards before committing them to the bucket. It
 can be rerun safely after an interrupted download. Do not deploy the service
 until the job completes and writes `config.json` under the model directory.
 
-The image build compiles vLLM and FlashInfer for L4 architecture `8.9`. It uses
-an 8-vCPU / 32-GiB Cloud Build worker for up to one hour, but has no GPU cost.
-Wait for the diagnostic before spending time or storage on the model cache.
+The image build compiles vLLM and FlashInfer for L4 architecture `8.9` using
+Cloud Build's lower-cost `E2_HIGHCPU_8` worker. Compilation is deliberately
+single-worker and can take up to one hour, but has no GPU cost. Wait for the
+diagnostic before spending time or storage on the model cache.
 
 Only after this Qwen service passes the smoke test, remove the incorrect old
 caches to avoid storage charges:
