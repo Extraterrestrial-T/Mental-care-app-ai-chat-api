@@ -25,29 +25,33 @@ from app.agent.agent_core import get_agent_app
 # Import services
 from app.services.firebase_service import firebase_service
 from app.services.doctor_service import doctor_service
+from app.services.scheduling import get_calendar_provider
 
 # Global variables
 agent_instance = None
-redis_client = None
+agent_resources = None
 
-DEFAULT_HOSPITAL_ID = "hospital_ZIBhJRtD1GOwS9d21v6IriSkP0D3"  # Fallback hospital ID
+DEFAULT_HOSPITAL_ID = "hospital_og803xOzZUbJVRdyOFqycJuQwJD3"  # Fallback hospital ID
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Startup and shutdown events"""
-    global agent_instance, redis_client
+    global agent_instance, agent_resources
     
     # Startup
     print("🚀 Starting application...")
-    agent_instance, redis_client = await get_agent_app()
-    print("✅ LangGraph Agent compiled and Redis connected")
+    agent_instance, agent_resources = await get_agent_app()
+    redis_status = "connected" if agent_resources and agent_resources.redis_connected else "not configured"
+    print(f"✅ LangGraph Agent compiled; Redis {redis_status}")
     
     yield
     
     # Shutdown
     print("👋 Shutting down...")
-    del agent_instance, redis_client
+    if agent_resources:
+        await agent_resources.close()
+    del agent_instance, agent_resources
 
 
 app = FastAPI(
@@ -85,20 +89,24 @@ app.include_router(hospital_router)
 
 #==================UTILITY FUCTIONS ===================
 def clean_appointment_data(input_dict):
-    # 1. Handle the patient_name string mess
-    # We replace the space between '}' and '{' with a comma and wrap in [] to make it a list
-    raw_name = input_dict['patient_name'].replace('} {', '}, {')
-    name_list = ast.literal_eval(f"[{raw_name}]")
-    
-    # Merge the list of dicts into one single dict
-    patient_info = {}
-    for d in name_list:
-        patient_info.update(d)
-        
-    # 2. Rebuild the final dictionary
+    """Normalize legacy and current booking payload shapes from the static frontend."""
     output = input_dict.copy()
-    output['patient_name'] = patient_info
-    
+
+    patient_name = input_dict.get("patient_name")
+    if isinstance(patient_name, str) and patient_name.strip().startswith("{"):
+        raw_name = patient_name.replace('} {', '}, {')
+        name_list = ast.literal_eval(f"[{raw_name}]")
+        patient_info = {}
+        for d in name_list:
+            patient_info.update(d)
+        output["patient_name"] = (
+            f"{patient_info.get('user_Fname', '')} {patient_info.get('user_Lname', '')}".strip()
+        )
+
+    patient_email = input_dict.get("patient_email")
+    if isinstance(patient_email, dict):
+        output["patient_email"] = patient_email.get("user_email", "")
+
     return output
 # ==================== MAIN ROUTES ====================
 
@@ -175,7 +183,7 @@ async def health_check():
     return {
         "status": "healthy",
         "agent_ready": agent_instance is not None,
-        "redis_connected": redis_client is not None
+        "redis_connected": bool(agent_resources and agent_resources.redis_connected)
     }
 
 # ==================== WEBSOCKET CHAT ====================
@@ -214,7 +222,8 @@ async def websocket_chat(websocket: WebSocket):
                 try:
                     # Get the conversation state to extract full chat history
                     state_snapshot = await agent_instance.aget_state(config)
-                    conversation_history = state_snapshot.values.get("messages", [])
+                    state_values = state_snapshot.values
+                    conversation_history = state_values.get("messages", [])
                     
                     # Format conversation as notes
                     conversation_notes = "=== CONVERSATION HISTORY ===\n\n"
@@ -224,6 +233,12 @@ async def websocket_chat(websocket: WebSocket):
                     
                     conversation_notes += f"\n=== BOOKING DETAILS ===\n"
                     conversation_notes += f"Booked via CeCe chatbot on {datetime.now().strftime('%B %d, %Y at %I:%M %p')}\n"
+                    conversation_notes += f"Age: {state_values.get('user_age', 'Not provided')}\n"
+                    conversation_notes += f"Feeling recently: {state_values.get('intake_feeling', 'Not provided')}\n"
+                    conversation_notes += f"Support requested: {state_values.get('intake_support_needed', 'Not provided')}\n"
+                    conversation_notes += f"Safety check: {state_values.get('intake_safety_check', 'Not provided')}\n"
+                    conversation_notes += f"Staff notes: {state_values.get('intake_staff_notes', 'Not provided')}\n"
+                    conversation_notes += f"SMS/call consent: {state_values.get('sms_call_consent', 'Not provided')}\n"
                     if booking_data.get("notes"):
                         conversation_notes += f"Additional notes: {booking_data['notes']}\n"
                     
@@ -234,8 +249,8 @@ async def websocket_chat(websocket: WebSocket):
                     # Book the appointment
                     result = await doctor_service.book_appointment(
                         doctor_id=booking_data["doctor_id"],
-                        patient_name=booking_data["patient_name"]['user_Fname'] + " " + booking_data["patient_name"]['user_Lname'],
-                        patient_email=booking_data["patient_email"]['user_email'],
+                        patient_name=booking_data["patient_name"],
+                        patient_email=booking_data["patient_email"],
                         start_time=start_time,
                         end_time=end_time,
                         notes=conversation_notes
@@ -264,8 +279,7 @@ async def websocket_chat(websocket: WebSocket):
             
             # ==================== HANDLE DOCTOR LIST REQUEST ====================
             if client_message.get("type") == "get_doctors":
-                #hospital_id = client_message.get("hospital_id", DEFAULT_HOSPITAL_ID)
-                hospital_id = DEFAULT_HOSPITAL_ID
+                hospital_id = client_message.get("hospital_id") or DEFAULT_HOSPITAL_ID
                 print(f"DEBUG: Fetching doctors for hospital: {hospital_id}")  # Debug log
                 
                 try:
@@ -283,11 +297,8 @@ async def websocket_chat(websocket: WebSocket):
                             print(f"WARNING: Doctor missing ID: {doctor.get('name')}")
                             continue
                             
-                        has_calendar = all([
-                            doctor.get("token"),
-                            doctor.get("refresh_token"),
-                            doctor.get("token_uri")
-                        ])
+                        provider = get_calendar_provider(doctor)
+                        has_calendar = provider.is_connected(doctor)
                         
                         print(f"DEBUG: Doctor {doctor.get('name')} - Has calendar: {has_calendar}")  # Debug log
                         
@@ -297,7 +308,8 @@ async def websocket_chat(websocket: WebSocket):
                                 "name": doctor.get("name"),
                                 "email": doctor.get("email"),
                                 "specialty": doctor.get("specialty", "Mental Health Professional"),
-                                "profile_pic": doctor.get("profile_pic")
+                                "profile_pic": doctor.get("profile_pic"),
+                                "calendar_provider": doctor.get("calendar_provider") or provider.provider_name,
                             })
                     
                     print(f"DEBUG: Sending {len(available_doctors)} available doctors")  # Debug log
@@ -365,7 +377,7 @@ async def websocket_chat(websocket: WebSocket):
             
             if not is_conversation_started:
                 # First message
-                hospital_id = client_message.get("hospital_id", DEFAULT_HOSPITAL_ID)
+                hospital_id = client_message.get("hospital_id") or DEFAULT_HOSPITAL_ID
                 graph_input = {
                     "user_message": client_message["query"],
                     "hospital_id": hospital_id

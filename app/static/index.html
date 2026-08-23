@@ -258,7 +258,7 @@
         let ws = null;
         let waitingForResume = false;
         let requiredFieldType = null;
-        let hospitalId = 'hospital_d4ec946b3ffa';
+        let hospitalId = null;
         
         // Booking state
         let bookingState = {
@@ -369,13 +369,24 @@
         }
 
         function showCalendar() {
-            const container = document.createElement('div');
+            // Booking is one replaceable surface in the transcript, not a new
+            // chat message every time the user moves backward.
+            let container = document.getElementById('booking-widget');
+            if (!container) {
+                container = document.createElement('div');
+                container.id = "booking-widget";
+                chatOutput.appendChild(container);
+            }
+            document.querySelectorAll('#booking-widget').forEach(widget => {
+                if (widget !== container) widget.remove();
+            });
             container.className = "slide-left mb-4";
-            container.id = "booking-widget";
-            
-            const today = new Date();
-            const currentMonth = today.getMonth();
-            const currentYear = today.getFullYear();
+
+            const selectedDate = bookingState.selectedDate
+                ? new Date(`${bookingState.selectedDate}T00:00:00`)
+                : new Date();
+            currentCalendarMonth = selectedDate.getMonth();
+            currentCalendarYear = selectedDate.getFullYear();
             
             container.innerHTML = `
                 <div class="calendar-container">
@@ -408,10 +419,9 @@
                 </div>
             `;
             
-            chatOutput.appendChild(container);
             scrollToBottom();
             
-            renderCalendar(currentMonth, currentYear);
+            renderCalendar(currentCalendarMonth, currentCalendarYear);
         }
 
         let currentCalendarMonth = new Date().getMonth();
@@ -485,8 +495,7 @@
             document.querySelectorAll('.calendar-day').forEach(el => el.classList.remove('selected'));
             element.classList.add('selected');
             
-            const date = new Date(year, month, day);
-            bookingState.selectedDate = date.toISOString().split('T')[0];
+            bookingState.selectedDate = [year, String(month + 1).padStart(2, '0'), String(day).padStart(2, '0')].join('-');
             
             setTimeout(() => {
                 loadingIndicator.classList.remove('hidden');
@@ -525,7 +534,7 @@
                 return;
             }
             
-            const formattedDate = new Date(bookingState.selectedDate).toLocaleDateString('en-US', { 
+            const formattedDate = new Date(`${bookingState.selectedDate}T00:00:00`).toLocaleDateString('en-US', {
                 weekday: 'long', 
                 month: 'long', 
                 day: 'numeric',
@@ -574,7 +583,7 @@
             const widget = document.getElementById('booking-widget');
             if (!widget) return;
             
-            const formattedDate = new Date(bookingState.selectedDate).toLocaleDateString('en-US', { 
+            const formattedDate = new Date(`${bookingState.selectedDate}T00:00:00`).toLocaleDateString('en-US', {
                 weekday: 'long', 
                 month: 'long', 
                 day: 'numeric',
@@ -761,6 +770,16 @@
                 }
                 bookingState.patientEmail = val;
             }
+
+            if (requiredFieldType === 'user_age') {
+                const age = Number(val);
+                if (!Number.isInteger(age) || age < 1 || age > 120) {
+                    interruptError.textContent = 'Please enter a valid age';
+                    interruptError.classList.remove('hidden');
+                    interruptInput.classList.add('input-error');
+                    return;
+                }
+            }
             
             // Validate phone
             if (requiredFieldType === 'user_phonenumber') {
@@ -811,7 +830,20 @@
             loadingIndicator.classList.remove('hidden');
         }
 
-        window.onload = connectWebSocket;
+        async function loadPublicConfig() {
+            try {
+                const response = await fetch('/api/config');
+                const config = await response.json();
+                hospitalId = config.default_hospital_id;
+            } catch (error) {
+                console.error('Failed to load config', error);
+            }
+        }
+
+        window.onload = async () => {
+            await loadPublicConfig();
+            connectWebSocket();
+        };
     </script>
 </body>
 </html>

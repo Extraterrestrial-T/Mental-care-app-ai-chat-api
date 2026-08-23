@@ -13,7 +13,7 @@ def main() -> None:
     if RAG_INDEX_DIR.exists():
         shutil.rmtree(RAG_INDEX_DIR)
 
-    load_vector_store()
+    load_vector_store(rebuild=True)
     print(f"RAG index created at {RAG_INDEX_DIR}")
 
 

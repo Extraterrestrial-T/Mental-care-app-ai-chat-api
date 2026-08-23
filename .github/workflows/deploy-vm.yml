@@ -65,6 +65,7 @@ jobs:
             --project="$PROJECT_ID" \
             --zone="$VM_ZONE" \
             --tunnel-through-iap \
+            --quiet \
             deploy/docker-compose.production.yml deploy/Caddyfile \
             "${VM_NAME}:${VM_DEPLOY_DIR}/"
 
@@ -87,4 +88,5 @@ jobs:
             --project="$PROJECT_ID" \
             --zone="$VM_ZONE" \
             --tunnel-through-iap \
+            --quiet \
             --command="$REMOTE_COMMAND"

@@ -7,12 +7,13 @@ from fastapi import APIRouter, Request, HTTPException, Response
 from fastapi.responses import RedirectResponse, JSONResponse, HTMLResponse, FileResponse
 from pydantic import BaseModel, EmailStr
 from google_auth_oauthlib.flow import Flow
-from googleapiclient.discovery import build
 from app.config import settings
 from app.services.firebase_service import firebase_service
 from app.services.firebase_auth_service import firebase_auth_service
-from typing import Optional
+from urllib.parse import urlencode
+import httpx
 import os
+import time
 
 router = APIRouter(prefix="/auth", tags=["authentication"])
 
@@ -180,13 +181,16 @@ async def google_calendar_callback(request: Request):
         
         # Update doctor with calendar credentials
         calendar_data = {
+            "calendar_provider": "google",
             "token": creds.token,
             "refresh_token": creds.refresh_token,
             "token_uri": creds.token_uri,
             "client_id": creds.client_id,
             "client_secret": creds.client_secret,
             "scopes": creds.scopes,
-            "calendar_connected": True
+            "token_expiry": creds.expiry.isoformat() if creds.expiry else None,
+            "calendar_connected": True,
+            "calendar_connection_error": None,
         }
         
         success = await firebase_service.save_doctor_credentials(doctor_id, calendar_data)
@@ -214,6 +218,119 @@ async def google_calendar_callback(request: Request):
         traceback.print_exc()
         return JSONResponse(
             content={"error": "Failed to connect calendar", "detail": str(e)},
+            status_code=500
+        )
+
+
+# ==================== MICROSOFT OAUTH (Outlook Calendar Only) ====================
+
+@router.get("/microsoft/connect")
+async def connect_microsoft_calendar(request: Request):
+    """
+    Start Microsoft OAuth flow for Outlook calendar connection.
+    Used by existing doctors to link their Microsoft calendar.
+    """
+    doctor_id = request.query_params.get("doctor_id")
+
+    if not doctor_id:
+        raise HTTPException(
+            status_code=400,
+            detail="doctor_id is required to connect Microsoft calendar"
+        )
+
+    doctor = await firebase_service.get_doctor(doctor_id)
+    if not doctor:
+        raise HTTPException(status_code=404, detail="Doctor not found")
+
+    if not settings.MICROSOFT_CLIENT_ID:
+        raise HTTPException(status_code=500, detail="Microsoft OAuth is not configured")
+
+    params = {
+        "client_id": settings.MICROSOFT_CLIENT_ID,
+        "response_type": "code",
+        "redirect_uri": settings.MICROSOFT_REDIRECT_URI,
+        "response_mode": "query",
+        "scope": " ".join(settings.MICROSOFT_SCOPES),
+        "state": doctor_id,
+        "prompt": "select_account",
+    }
+    tenant_id = settings.MICROSOFT_TENANT_ID
+    authorization_url = (
+        f"https://login.microsoftonline.com/{tenant_id}/oauth2/v2.0/authorize?"
+        f"{urlencode(params)}"
+    )
+
+    return RedirectResponse(authorization_url)
+
+
+@router.get("/microsoft/callback")
+async def microsoft_calendar_callback(request: Request):
+    """Handle Microsoft OAuth callback and link Outlook calendar to an existing doctor."""
+    code = request.query_params.get("code")
+    doctor_id = request.query_params.get("state")
+
+    if not code:
+        raise HTTPException(status_code=400, detail="No authorization code provided")
+
+    if not doctor_id:
+        raise HTTPException(status_code=400, detail="Missing doctor identification for account linking")
+
+    doctor = await firebase_service.get_doctor(doctor_id)
+    if not doctor:
+        raise HTTPException(status_code=404, detail="Doctor account not found")
+
+    if not settings.MICROSOFT_CLIENT_ID or not settings.MICROSOFT_CLIENT_SECRET:
+        raise HTTPException(status_code=500, detail="Microsoft OAuth is not configured")
+
+    try:
+        tenant_id = settings.MICROSOFT_TENANT_ID
+        token_url = f"https://login.microsoftonline.com/{tenant_id}/oauth2/v2.0/token"
+        token_data = {
+            "client_id": settings.MICROSOFT_CLIENT_ID,
+            "client_secret": settings.MICROSOFT_CLIENT_SECRET,
+            "grant_type": "authorization_code",
+            "code": code,
+            "redirect_uri": settings.MICROSOFT_REDIRECT_URI,
+            "scope": " ".join(settings.MICROSOFT_SCOPES),
+        }
+
+        async with httpx.AsyncClient(timeout=20) as client:
+            token_response = await client.post(token_url, data=token_data)
+            token_response.raise_for_status()
+            tokens = token_response.json()
+
+        calendar_data = {
+            "calendar_provider": "microsoft",
+            "token": tokens.get("access_token"),
+            "refresh_token": tokens.get("refresh_token"),
+            "scopes": tokens.get("scope", "").split(),
+            "expires_at": time.time() + int(tokens.get("expires_in", 3600)),
+            "calendar_connected": True,
+        }
+
+        success = await firebase_service.save_doctor_credentials(doctor_id, calendar_data)
+        if not success:
+            raise HTTPException(status_code=500, detail="Failed to save Microsoft calendar credentials")
+
+        response = RedirectResponse(url=f"{settings.FRONTEND_URL}/doctor/dashboard?calendar=connected")
+        response.set_cookie(
+            key=settings.SESSION_COOKIE_NAME,
+            value=doctor_id,
+            max_age=settings.SESSION_MAX_AGE,
+            httponly=True,
+            samesite="lax",
+            secure=settings.IS_PRODUCTION
+        )
+        return response
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Microsoft OAuth callback error: {e}")
+        import traceback
+        traceback.print_exc()
+        return JSONResponse(
+            content={"error": "Failed to connect Microsoft calendar", "detail": str(e)},
             status_code=500
         )
 

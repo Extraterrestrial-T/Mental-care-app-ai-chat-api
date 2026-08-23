@@ -2,6 +2,7 @@ from fastapi import APIRouter, Request, Depends, HTTPException
 from fastapi.responses import HTMLResponse, FileResponse
 from app.auth.middleware import require_hospital_auth
 from app.services.firebase_service import firebase_service
+from app.services.scheduling import get_calendar_provider
 from datetime import datetime, timedelta
 import os
 
@@ -44,7 +45,7 @@ async def get_hospital_dashboard(hospital_id: str = Depends(require_hospital_aut
     
     # Get stats
     total_doctors = len(doctors)
-    connected_doctors = len([d for d in doctors if d.get("refresh_token")])
+    connected_doctors = len([d for d in doctors if get_calendar_provider(d).is_connected(d)])
     for doctor in doctors:
         doctor.pop("token", None)
         doctor.pop("refresh_token", None)   
@@ -92,11 +93,8 @@ async def get_hospital_doctors(hospital_id: str = Depends(require_hospital_auth)
     # Don't expose sensitive credentials
     safe_doctors = []
     for doctor in doctors:
-        has_calendar = all([
-                doctor.get("token"),
-                doctor.get("refresh_token"), 
-                doctor.get("token_uri")
-            ])
+        provider = get_calendar_provider(doctor)
+        has_calendar = provider.is_connected(doctor)
         safe_doctors.append({
             "id": doctor.get("id"),
             "name": doctor.get("name"),
@@ -104,6 +102,7 @@ async def get_hospital_doctors(hospital_id: str = Depends(require_hospital_auth)
             "specialty": doctor.get("specialty"),
             "profile_pic": doctor.get("profile_pic"),
             "calendar_connected": bool(has_calendar),
+            "calendar_provider": doctor.get("calendar_provider") or provider.provider_name,
             "linked_at": doctor.get("linked_at")
         })
     

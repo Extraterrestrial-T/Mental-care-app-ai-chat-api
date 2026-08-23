@@ -27,6 +27,16 @@ class Settings(BaseSettings):
         "https://www.googleapis.com/auth/userinfo.profile",
         "openid",
     ]
+
+    # Microsoft Graph / Outlook Calendar OAuth
+    MICROSOFT_CLIENT_ID: str = os.getenv("MICROSOFT_CLIENT_ID", "")
+    MICROSOFT_CLIENT_SECRET: str = os.getenv("MICROSOFT_CLIENT_SECRET", "")
+    MICROSOFT_TENANT_ID: str = os.getenv("MICROSOFT_TENANT_ID", "common")
+    MICROSOFT_SCOPES: List[str] = [
+        "offline_access",
+        "User.Read",
+        "Calendars.ReadWrite",
+    ]
     
     # URLs - automatically detect localhost vs production
     BASE_URL: str = os.getenv("BASE_URL", "http://localhost:8000")
@@ -38,6 +48,11 @@ class Settings(BaseSettings):
     def REDIRECT_URI(self) -> str:
         """OAuth redirect URI"""
         return f"{self.BASE_URL}/auth/callback"
+
+    @property
+    def MICROSOFT_REDIRECT_URI(self) -> str:
+        """Microsoft OAuth redirect URI"""
+        return f"{self.BASE_URL}/auth/microsoft/callback"
     
     @property
     def IS_PRODUCTION(self) -> bool:
@@ -57,6 +72,9 @@ class Settings(BaseSettings):
     class Config:
         env_file = ".env"
         case_sensitive = True
+        # Agent and deployment modules read additional environment variables directly.
+        # Do not reject those variables when constructing the shared settings object.
+        extra = "ignore"
 
 
 # Singleton instance
