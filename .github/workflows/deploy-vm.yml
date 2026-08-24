@@ -48,6 +48,42 @@ jobs:
       - name: Set up gcloud
         uses: google-github-actions/setup-gcloud@v2
 
+      - name: Resolve deployment VM
+        id: vm
+        shell: bash
+        run: |
+          if [[ -z "$PROJECT_ID" || -z "$VM_NAME" ]]; then
+            echo "GCP_PROJECT_ID and VM_NAME repository variables are required." >&2
+            exit 1
+          fi
+
+          mapfile -t VM_MATCHES < <(
+            gcloud compute instances list \
+              --project="$PROJECT_ID" \
+              --filter="name=$VM_NAME" \
+              --format='value(name,zone.basename(),status)'
+          )
+
+          if [[ ${#VM_MATCHES[@]} -ne 1 ]]; then
+            echo "Expected exactly one VM named '$VM_NAME' in project '$PROJECT_ID'; found ${#VM_MATCHES[@]}." >&2
+            echo "Available instances:" >&2
+            gcloud compute instances list \
+              --project="$PROJECT_ID" \
+              --format='table(name,zone.basename(),status)' >&2
+            exit 1
+          fi
+
+          read -r RESOLVED_NAME RESOLVED_ZONE VM_STATUS <<< "${VM_MATCHES[0]}"
+          if [[ "$VM_STATUS" != "RUNNING" ]]; then
+            echo "VM '$RESOLVED_NAME' is '$VM_STATUS', not RUNNING." >&2
+            exit 1
+          fi
+          if [[ -n "$VM_ZONE" && "$VM_ZONE" != "$RESOLVED_ZONE" ]]; then
+            echo "Configured VM_ZONE '$VM_ZONE' is stale; using discovered zone '$RESOLVED_ZONE'."
+          fi
+          echo "zone=$RESOLVED_ZONE" >> "$GITHUB_OUTPUT"
+          echo "Resolved $RESOLVED_NAME in $RESOLVED_ZONE ($VM_STATUS)."
+
       - name: Authenticate Docker to Artifact Registry
         run: gcloud auth configure-docker "${GAR_LOCATION}-docker.pkg.dev" --quiet
 
@@ -70,7 +106,7 @@ jobs:
         run: |
           gcloud compute ssh "$VM_NAME" \
             --project="$PROJECT_ID" \
-            --zone="$VM_ZONE" \
+            --zone="${{ steps.vm.outputs.zone }}" \
             --tunnel-through-iap \
             --quiet \
             --command="mkdir -p ~/carecoordinator-deploy"
@@ -79,7 +115,7 @@ jobs:
         run: |
           gcloud compute scp \
             --project="$PROJECT_ID" \
-            --zone="$VM_ZONE" \
+            --zone="${{ steps.vm.outputs.zone }}" \
             --tunnel-through-iap \
             --quiet \
             deploy/docker-compose.production.yml \
@@ -165,7 +201,7 @@ jobs:
           )
           gcloud compute ssh "$VM_NAME" \
             --project="$PROJECT_ID" \
-            --zone="$VM_ZONE" \
+            --zone="${{ steps.vm.outputs.zone }}" \
             --tunnel-through-iap \
             --quiet \
             --command="$REMOTE_COMMAND"
