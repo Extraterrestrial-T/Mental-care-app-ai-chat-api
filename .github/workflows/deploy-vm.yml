@@ -173,29 +173,29 @@ jobs:
           sudo -n docker image prune -af
           CANDIDATE_ENV=/tmp/carecoordinator-release.env
           printf 'APP_IMAGE=%s\\n' '${IMAGE}' | sudo -n tee "\$CANDIDATE_ENV" >/dev/null
-          sudo -n docker compose --env-file .env --env-file "\$CANDIDATE_ENV" config --quiet
-          sudo -n docker compose --env-file .env --env-file "\$CANDIDATE_ENV" pull app rag-indexer calendar-health
+          sudo -n docker compose -f docker-compose.production.yml --env-file .env --env-file "\$CANDIDATE_ENV" config --quiet
+          sudo -n docker compose -f docker-compose.production.yml --env-file .env --env-file "\$CANDIDATE_ENV" pull app rag-indexer calendar-health
 
           echo '[deploy] Checking the persistent RAG index'
           if [ '${REBUILD_RAG}' = 'true' ] || \
-             ! sudo -n docker compose --env-file .env --env-file "\$CANDIDATE_ENV" run --rm --no-deps app \
+             ! sudo -n docker compose -f docker-compose.production.yml --env-file .env --env-file "\$CANDIDATE_ENV" run --rm --no-deps app \
                python -c "from pathlib import Path; raise SystemExit(0 if Path('/data/rag-index/index.faiss').is_file() else 1)"; then
-            sudo -n docker compose --env-file .env --env-file "\$CANDIDATE_ENV" --profile index run --rm rag-indexer
+            sudo -n docker compose -f docker-compose.production.yml --env-file .env --env-file "\$CANDIDATE_ENV" --profile index run --rm rag-indexer
           fi
 
           echo '[deploy] Starting the candidate release'
           printf 'APP_IMAGE=%s\\n' '${IMAGE}' | sudo -n tee .release.env >/dev/null
-          if ! sudo -n docker compose --env-file .env --env-file .release.env up -d --remove-orphans --wait; then
+          if ! sudo -n docker compose -f docker-compose.production.yml --env-file .env --env-file .release.env up -d --remove-orphans --wait; then
             echo 'New revision failed health checks; rolling back.' >&2
             if [ -n "\$PREVIOUS_IMAGE" ]; then
               printf 'APP_IMAGE=%s\\n' "\$PREVIOUS_IMAGE" | sudo -n tee .release.env >/dev/null
-              sudo -n docker compose --env-file .env --env-file .release.env pull app
-              sudo -n docker compose --env-file .env --env-file .release.env up -d --remove-orphans --wait
+              sudo -n docker compose -f docker-compose.production.yml --env-file .env --env-file .release.env pull app
+              sudo -n docker compose -f docker-compose.production.yml --env-file .env --env-file .release.env up -d --remove-orphans --wait
             fi
             exit 1
           fi
           sudo -n rm -f "\$CANDIDATE_ENV"
-          sudo -n docker compose --env-file .env --env-file .release.env exec -T caddy \
+          sudo -n docker compose -f docker-compose.production.yml --env-file .env --env-file .release.env exec -T caddy \
             caddy reload --config /etc/caddy/Caddyfile
 
           echo '[deploy] Installing and running calendar maintenance'
@@ -206,7 +206,7 @@ jobs:
           sudo -n systemctl is-active --quiet carecoordinator-calendar-health.timer
           echo '[deploy] Cleaning unused images and reporting status'
           sudo -n docker image prune -af
-          sudo -n docker compose --env-file .env --env-file .release.env ps
+          sudo -n docker compose -f docker-compose.production.yml --env-file .env --env-file .release.env ps
           EOF
           )
           gcloud compute ssh "${{ steps.vm.outputs.name }}" \
