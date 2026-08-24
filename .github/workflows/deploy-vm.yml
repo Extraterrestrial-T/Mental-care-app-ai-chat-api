@@ -86,6 +86,15 @@ jobs:
           echo "zone=$RESOLVED_ZONE" >> "$GITHUB_OUTPUT"
           echo "Resolved $RESOLVED_NAME in $RESOLVED_ZONE ($VM_STATUS)."
 
+      - name: Verify VM deployment access
+        run: |
+          gcloud compute ssh "${{ steps.vm.outputs.name }}" \
+            --project="$PROJECT_ID" \
+            --zone="${{ steps.vm.outputs.zone }}" \
+            --tunnel-through-iap \
+            --quiet \
+            --command="sudo -n true && mkdir -p ~/carecoordinator-deploy"
+
       - name: Authenticate Docker to Artifact Registry
         run: gcloud auth configure-docker "${GAR_LOCATION}-docker.pkg.dev" --quiet
 
@@ -103,15 +112,6 @@ jobs:
           docker push "${IMAGE}:${GITHUB_SHA}"
           docker push "${IMAGE}:main"
           echo "reference=${IMAGE}:${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
-
-      - name: Prepare deployment staging directory
-        run: |
-          gcloud compute ssh "${{ steps.vm.outputs.name }}" \
-            --project="$PROJECT_ID" \
-            --zone="${{ steps.vm.outputs.zone }}" \
-            --tunnel-through-iap \
-            --quiet \
-            --command="mkdir -p ~/carecoordinator-deploy"
 
       - name: Copy deployment configuration to the VM
         run: |
