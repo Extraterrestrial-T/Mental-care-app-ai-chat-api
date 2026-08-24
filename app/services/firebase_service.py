@@ -17,41 +17,43 @@ class FirebaseService:
         return cls._instance
     
     def __init__(self):
-        """Initialize Firebase Admin SDK (only once)"""
-        if not self._initialized:
+        """Create the singleton without performing network authentication on import."""
+        if not hasattr(self, "_db"):
+            self._db = None
+
+    def initialize(self) -> None:
+        """Initialize Firebase once; called explicitly during application startup."""
+        if self._initialized:
+            return
+
+        project_id = os.getenv("FIREBASE_PROJECT_ID", "mental-479910")
+        database_id = os.getenv("FIREBASE_DATABASE_ID", "auth-tokens-calendar")
+        cred_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+
+        try:
             if not firebase_admin._apps:
-                # 1. Get Project ID and Database ID from Env
-                project_id = os.getenv("FIREBASE_PROJECT_ID", "mental-479910")
-                # Specific named database as requested: auth-tokens-calendar
-                database_id = os.getenv("FIREBASE_DATABASE_ID", "auth-tokens-calendar")
-                
-                # 2. Get Credential Path from Env
-                cred_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
-                
-                try:
-                    if cred_path and os.path.exists(cred_path):
-                        print(f"--- Firebase Init: Using Service Account File: {cred_path} ---")
-                        cred = credentials.Certificate(cred_path)
-                        firebase_admin.initialize_app(cred, {
-                            'projectId': project_id,
-                        })
-                    else:
-                        print("--- Firebase Init: Using Application Default Credentials ---")
-                        cred = credentials.ApplicationDefault()
-                        firebase_admin.initialize_app(cred, {
-                            'projectId': project_id,
-                        })
-                    
-                    # CRITICAL FIX: Explicitly specify the named database ID
-                    self.db = firestore.client(database_id=database_id)
-                    print(f"✅ Successfully connected to Firestore Project: {self.db.project}")
-                    print(f"✅ Using Database Instance: {database_id}")
-                    
-                    self._initialized = True
-                    
-                except Exception as e:
-                    print(f"❌ Failed to initialize Firebase: {str(e)}")
-                    raise e
+                if cred_path and os.path.exists(cred_path):
+                    print(f"--- Firebase Init: Using Service Account File: {cred_path} ---")
+                    cred = credentials.Certificate(cred_path)
+                else:
+                    print("--- Firebase Init: Using Application Default Credentials ---")
+                    cred = credentials.ApplicationDefault()
+                firebase_admin.initialize_app(cred, {"projectId": project_id})
+
+            self._db = firestore.client(database_id=database_id)
+            self._initialized = True
+            print(f"✅ Successfully connected to Firestore Project: {self._db.project}")
+            print(f"✅ Using Database Instance: {database_id}")
+        except Exception as exc:
+            print(f"❌ Failed to initialize Firebase: {exc}")
+            raise
+
+    @property
+    def db(self):
+        """Lazily initialize for scripts and jobs that do not use FastAPI lifespan."""
+        if not self._initialized:
+            self.initialize()
+        return self._db
 
     async def save_doctor_credentials(
         self, 

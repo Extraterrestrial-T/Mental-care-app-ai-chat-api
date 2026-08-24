@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 from zoneinfo import ZoneInfo
 
@@ -49,12 +49,22 @@ class MicrosoftGraphCalendarProvider(CalendarProvider):
         token = token_data.get("token")
         expires_at = token_data.get("expires_at")
 
-        if token and (not expires_at or expires_at > datetime.utcnow().timestamp() + 60):
+        # A missing expiry means an existing token may be used. A zero or invalid
+        # expiry must never be interpreted as missing because it represents an
+        # expired credential in persisted Microsoft token data.
+        token_is_fresh = expires_at is None
+        if expires_at is not None:
+            try:
+                token_is_fresh = float(expires_at) > datetime.now(timezone.utc).timestamp() + 60
+            except (TypeError, ValueError):
+                token_is_fresh = False
+
+        if token and token_is_fresh:
             return token
 
         payload = await self.refresh_access_token(token_data.get("refresh_token"))
         token_data["token"] = payload["access_token"]
-        token_data["expires_at"] = datetime.utcnow().timestamp() + int(payload.get("expires_in", 3600))
+        token_data["expires_at"] = datetime.now(timezone.utc).timestamp() + int(payload.get("expires_in", 3600))
         if payload.get("refresh_token"):
             token_data["refresh_token"] = payload["refresh_token"]
         return token_data["token"]

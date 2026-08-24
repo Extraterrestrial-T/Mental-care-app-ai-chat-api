@@ -40,6 +40,7 @@ async def lifespan(app: FastAPI):
     
     # Startup
     print("🚀 Starting application...")
+    firebase_service.initialize()
     agent_instance, agent_resources = await get_agent_app()
     redis_status = "connected" if agent_resources and agent_resources.redis_connected else "not configured"
     print(f"✅ LangGraph Agent compiled; Redis {redis_status}")
