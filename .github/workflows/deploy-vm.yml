@@ -147,10 +147,12 @@ jobs:
         run: |
           REMOTE_COMMAND=$(cat <<EOF
           set -euo pipefail
+          echo '[deploy] Verifying administrative access'
           if ! sudo -n true; then
             echo 'Deployment identity needs Compute OS Admin Login (passwordless sudo).' >&2
             exit 1
           fi
+          echo '[deploy] Installing deployment configuration'
           sudo -n install -d -m 0755 '${VM_DEPLOY_DIR}'
           sudo -n install -m 0644 ~/carecoordinator-deploy/docker-compose.production.yml '${VM_DEPLOY_DIR}/docker-compose.production.yml'
           sudo -n install -m 0644 ~/carecoordinator-deploy/Caddyfile '${VM_DEPLOY_DIR}/Caddyfile'
@@ -158,12 +160,14 @@ jobs:
           sudo -n install -m 0644 ~/carecoordinator-deploy/carecoordinator-calendar-health.timer /etc/systemd/system/carecoordinator-calendar-health.timer
           cd '${VM_DEPLOY_DIR}'
 
-          test -s .env
-          test -s secrets/firebase-service-account.json
-          test -s secrets/google-oauth-client.json
-          PREVIOUS_IMAGE="\$(sed -n 's/^APP_IMAGE=//p' .release.env 2>/dev/null || true)"
+          echo '[deploy] Validating protected environment and credential files'
+          sudo -n test -s .env
+          sudo -n test -s secrets/firebase-service-account.json
+          sudo -n test -s secrets/google-oauth-client.json
+          PREVIOUS_IMAGE="\$(sudo -n sed -n 's/^APP_IMAGE=//p' .release.env 2>/dev/null || true)"
           printf '%s' '${IMAGE}' | grep -q '^${GAR_LOCATION}-docker.pkg.dev/'
 
+          echo '[deploy] Authenticating Docker and pulling the candidate image'
           gcloud auth print-access-token | sudo -n docker login \
             -u oauth2accesstoken --password-stdin 'https://${GAR_LOCATION}-docker.pkg.dev'
           sudo -n docker image prune -af
@@ -172,12 +176,14 @@ jobs:
           sudo -n docker compose --env-file .env --env-file "\$CANDIDATE_ENV" config --quiet
           sudo -n docker compose --env-file .env --env-file "\$CANDIDATE_ENV" pull app rag-indexer calendar-health
 
+          echo '[deploy] Checking the persistent RAG index'
           if [ '${REBUILD_RAG}' = 'true' ] || \
              ! sudo -n docker compose --env-file .env --env-file "\$CANDIDATE_ENV" run --rm --no-deps app \
                python -c "from pathlib import Path; raise SystemExit(0 if Path('/data/rag-index/index.faiss').is_file() else 1)"; then
             sudo -n docker compose --env-file .env --env-file "\$CANDIDATE_ENV" --profile index run --rm rag-indexer
           fi
 
+          echo '[deploy] Starting the candidate release'
           printf 'APP_IMAGE=%s\\n' '${IMAGE}' | sudo -n tee .release.env >/dev/null
           if ! sudo -n docker compose --env-file .env --env-file .release.env up -d --remove-orphans --wait; then
             echo 'New revision failed health checks; rolling back.' >&2
@@ -192,11 +198,13 @@ jobs:
           sudo -n docker compose --env-file .env --env-file .release.env exec -T caddy \
             caddy reload --config /etc/caddy/Caddyfile
 
+          echo '[deploy] Installing and running calendar maintenance'
           sudo -n systemctl daemon-reload
           sudo -n systemctl enable --now carecoordinator-calendar-health.timer
           sudo -n systemctl start carecoordinator-calendar-health.service
           sudo -n systemctl is-enabled --quiet carecoordinator-calendar-health.timer
           sudo -n systemctl is-active --quiet carecoordinator-calendar-health.timer
+          echo '[deploy] Cleaning unused images and reporting status'
           sudo -n docker image prune -af
           sudo -n docker compose --env-file .env --env-file .release.env ps
           EOF
