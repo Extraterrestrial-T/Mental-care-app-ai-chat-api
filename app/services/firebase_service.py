@@ -113,6 +113,19 @@ class FirebaseService:
         except Exception as e:
             print(f"Error getting doctors by hospital: {e}")
             return []
+
+    async def get_all_doctors(self) -> List[Dict[str, Any]]:
+        """Return all doctors for calendar-connection maintenance jobs."""
+        try:
+            doctors = []
+            for doc in self.db.collection("doctors").stream():
+                data = doc.to_dict()
+                data["id"] = doc.id
+                doctors.append(data)
+            return doctors
+        except Exception as e:
+            print(f"Error getting all doctors: {e}")
+            return []
     
     # ==================== HOSPITAL OPERATIONS ====================
     

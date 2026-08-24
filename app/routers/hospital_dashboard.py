@@ -2,7 +2,7 @@ from fastapi import APIRouter, Request, Depends, HTTPException
 from fastapi.responses import HTMLResponse, FileResponse
 from app.auth.middleware import require_hospital_auth
 from app.services.firebase_service import firebase_service
-from app.services.scheduling import get_calendar_provider
+from app.services.doctor_service import doctor_service
 from datetime import datetime, timedelta
 import os
 
@@ -40,16 +40,12 @@ async def get_hospital_dashboard(hospital_id: str = Depends(require_hospital_aut
         await firebase_service.save_hospital(hospital_id, hospital)
     
     # Get all doctors in this hospital
-    doctors = await firebase_service.get_doctors_by_hospital(hospital_id)
+    doctors = await doctor_service.list_hospital_doctors(hospital_id)
     
     
     # Get stats
     total_doctors = len(doctors)
-    connected_doctors = len([d for d in doctors if get_calendar_provider(d).is_connected(d)])
-    for doctor in doctors:
-        doctor.pop("token", None)
-        doctor.pop("refresh_token", None)   
-        doctor.pop("token_uri", None)
+    connected_doctors = len([d for d in doctors if d.get("calendar_connected")])
 
     start_date = datetime.now()
     end_date = start_date + timedelta(days=30)
@@ -88,25 +84,8 @@ async def get_hospital_dashboard(hospital_id: str = Depends(require_hospital_aut
 @router.get("/api/doctors")
 async def get_hospital_doctors(hospital_id: str = Depends(require_hospital_auth)):
     """Get all doctors in hospital"""
-    doctors = await firebase_service.get_doctors_by_hospital(hospital_id)
-    
-    # Don't expose sensitive credentials
-    safe_doctors = []
-    for doctor in doctors:
-        provider = get_calendar_provider(doctor)
-        has_calendar = provider.is_connected(doctor)
-        safe_doctors.append({
-            "id": doctor.get("id"),
-            "name": doctor.get("name"),
-            "email": doctor.get("email"),
-            "specialty": doctor.get("specialty"),
-            "profile_pic": doctor.get("profile_pic"),
-            "calendar_connected": bool(has_calendar),
-            "calendar_provider": doctor.get("calendar_provider") or provider.provider_name,
-            "linked_at": doctor.get("linked_at")
-        })
-    
-    return {"doctors": safe_doctors}
+    doctors = await doctor_service.list_hospital_doctors(hospital_id)
+    return {"doctors": doctors}
 
 
 

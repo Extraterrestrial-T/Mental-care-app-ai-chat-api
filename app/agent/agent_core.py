@@ -1,5 +1,4 @@
 import os 
-import re
 import dotenv
 import faiss
 from dataclasses import dataclass
@@ -22,16 +21,29 @@ from langgraph.checkpoint.memory import MemorySaver
 from langgraph.checkpoint.redis.aio import AsyncRedisSaver 
 from langgraph.store.redis.aio import AsyncRedisStore  
 from redis.asyncio import Redis as AsyncRedisClient
+from app.config import settings
+from app.agent.booking_logic import (
+    apply_message_corrections,
+    closing_response,
+    extract_age_from_message as _extract_age_from_message,
+    is_gratitude,
+    normalize_contact_details,
+    parse_age as _parse_age,
+    requests_booking,
+    safety_status as _safety_status,
+)
 
 # --- ENVIRONMENT & CONFIG ---
 dotenv.load_dotenv()
-DB_URI = os.getenv("REDIS_URL", None)
+DB_URI = settings.REDIS_URL or None
 PROJECT_ROOT = Path(__file__).parent
 LOCAL_CORPUS_PATH = PROJECT_ROOT / "corpus.txt"
-RAG_INDEX_DIR = Path(os.getenv("RAG_INDEX_DIR", PROJECT_ROOT / "vector_index"))
-RAG_SOURCE_URL = os.getenv("RAG_SOURCE_URL", "https://cornerhealth.org")
-CHAT_MODEL = os.getenv("CHAT_MODEL", "google_genai:gemini-2.5-flash")
-CRISIS_SUPPORT_LINE = os.getenv("CRISIS_SUPPORT_LINE", "").strip()
+RAG_INDEX_DIR = Path(settings.RAG_INDEX_DIR)
+RAG_SOURCE_URL = settings.RAG_SOURCE_URL
+CHAT_MODEL = settings.CHAT_MODEL
+CRISIS_SUPPORT_LINE = settings.CRISIS_SUPPORT_LINE.strip()
+MIN_ELIGIBLE_AGE = settings.MIN_ELIGIBLE_AGE
+MAX_ELIGIBLE_AGE = settings.MAX_ELIGIBLE_AGE
 
 # --- MODEL INITIALIZATION ---
 model = init_chat_model(CHAT_MODEL)
@@ -145,7 +157,8 @@ class BookingIntakeFacts(BaseModel):
     feeling: str | None = None
     support_needed: str | None = None
     safety: Literal["safe", "unsafe", "unknown"] = "unknown"
-    
+
+
 class MentalHealthAgentState(TypedDict):
     """The agent state, using add_messages for history persistence."""
     
@@ -162,6 +175,9 @@ class MentalHealthAgentState(TypedDict):
     intake_staff_notes: str | None
     eligibility_status: Literal["eligible", "ineligible"] | None
     booking_intake_extracted: bool | None
+    correction_detected: bool | None
+    safety_guidance_acknowledged: bool | None
+    booking_completed: bool | None
     hospital_id: str | None  # NEW: Track which hospital
     classification: RequestClassification | None
     search_results: list[str] | None 
@@ -173,12 +189,37 @@ class MentalHealthAgentState(TypedDict):
 
 async def read_request(state: MentalHealthAgentState) -> dict:
     """Adds the current user_message to the message history."""
-    return {
-        "messages": [HumanMessage(content=state['user_message'])]
+    message = state["user_message"]
+    updates: dict[str, Any] = {
+        "messages": [HumanMessage(content=message)],
     }
+
+    # Corrections must be applied before intent classification. Otherwise an age
+    # clarification is treated as small talk and the completed graph never reopens.
+    updates.update(apply_message_corrections(state, message))
+    return updates
 
 async def classify_intent(state: MentalHealthAgentState) -> Command[Literal["search_website_info", "collect_booking_info", "respond"]]:
     """Uses LLM to classify request intent and urgency."""
+    if state.get("correction_detected"):
+        classification: RequestClassification = {
+            "intent": "booking",
+            "urgency": "stable",
+            "summary_request": "The user corrected booking information.",
+        }
+        return Command(update={"classification": classification}, goto="collect_booking_info")
+
+    if is_gratitude(state["user_message"]):
+        classification = {
+            "intent": "conversational",
+            "urgency": "stable",
+            "summary_request": "The user is closing the conversation with thanks.",
+        }
+        return Command(
+            update={"classification": classification, "booking_initiated": False},
+            goto="respond",
+        )
+
     structured_llm = model.with_structured_output(RequestClassification)
 
     classification_prompt = f"""
@@ -196,7 +237,10 @@ async def classify_intent(state: MentalHealthAgentState) -> Command[Literal["sea
     classification = await structured_llm.ainvoke(classification_prompt)
     classification_dict = classification
     
-    if classification_dict['intent'] == 'urgent_help' or classification_dict['urgency'] == 'critical':
+    if requests_booking(state["user_message"]):
+        classification_dict["intent"] = "booking"
+        goto = "collect_booking_info"
+    elif classification_dict['intent'] == 'urgent_help' or classification_dict['urgency'] == 'critical':
         goto = "respond"
     elif classification_dict['intent'] == 'inquiry':
         goto = "search_website_info" 
@@ -205,8 +249,12 @@ async def classify_intent(state: MentalHealthAgentState) -> Command[Literal["sea
     elif classification_dict['intent'] == 'conversational':
         goto = "respond"
     
+    updates: dict[str, Any] = {"classification": classification}
+    if classification_dict["intent"] == "booking":
+        updates.update({"booking_initiated": False, "booking_completed": False})
+
     return Command(
-        update={"classification": classification},
+        update=updates,
         goto=goto
     )
 
@@ -237,46 +285,6 @@ def _extract_resume_value(user_input: Any, field_name: str) -> Any:
     return user_input
 
 
-def _parse_age(value: Any) -> int | None:
-    try:
-        return int(str(value).strip())
-    except (TypeError, ValueError):
-        return None
-
-
-def _extract_age_from_message(message: str) -> int | None:
-    patterns = (
-        r"\b(?:i am|i'm|im|aged|age)\s+(\d{1,3})(?:\s*(?:years? old|yo|y/o))?\b",
-        r"\b(\d{1,3})\s*(?:years? old|yo|y/o)\b",
-    )
-    for pattern in patterns:
-        match = re.search(pattern, message, flags=re.IGNORECASE)
-        if match:
-            return _parse_age(match.group(1))
-    return None
-
-
-def _safety_status(value: Any) -> Literal["safe", "unsafe", "unknown"]:
-    if not isinstance(value, str):
-        return "unknown"
-
-    normalized = value.strip().lower()
-    unsafe_phrases = (
-        "no",
-        "nope",
-        "not safe",
-        "unsafe",
-        "don't feel safe",
-        "do not feel safe",
-        "in danger",
-    )
-    if normalized in {"no", "nope", "n"} or any(phrase in normalized for phrase in unsafe_phrases[2:]):
-        return "unsafe"
-    if normalized in {"yes", "y", "safe", "i am safe", "i'm safe", "im safe"}:
-        return "safe"
-    return "unknown"
-
-
 async def _extract_booking_intake_facts(message: str) -> BookingIntakeFacts:
     """Extract only information the user has already volunteered in one message."""
     structured_llm = model.with_structured_output(BookingIntakeFacts)
@@ -303,6 +311,11 @@ def _crisis_response() -> str:
     )
 
 
+def _contact_state_updates(payload: Any) -> dict[str, Any]:
+    """Validate the contact form payload and map it onto persisted agent state."""
+    return normalize_contact_details(payload)
+
+
 async def collect_booking_info(state: MentalHealthAgentState) -> Command[Literal["respond", "collect_booking_info"]]:
     """Collect patient information for booking (self-loop pattern)."""
     print("Collecting booking info node executing...")
@@ -322,7 +335,7 @@ async def collect_booking_info(state: MentalHealthAgentState) -> Command[Literal
             updates["intake_safety_check"] = facts.safety
         return Command(update=updates, goto="collect_booking_info")
 
-    # 1. Age gate for Corner Health MVP. Keep this configurable later per hospital.
+    # 1. Age gate for the Corner Health MVP.
     if not state.get("user_age"):
         user_input = interrupt({
             "type": "user_age",
@@ -336,7 +349,7 @@ async def collect_booking_info(state: MentalHealthAgentState) -> Command[Literal
         )
 
     age = _parse_age(state.get("user_age"))
-    if age is None or age < 12 or age > 25:
+    if age is None or age < MIN_ELIGIBLE_AGE or age > MAX_ELIGIBLE_AGE:
         return Command(
             update={"eligibility_status": "ineligible", "booking_initiated": False},
             goto="respond"
@@ -354,10 +367,22 @@ async def collect_booking_info(state: MentalHealthAgentState) -> Command[Literal
             goto="collect_booking_info"
         )
 
-    if _safety_status(state.get("intake_safety_check")) == "unsafe":
+    if (
+        _safety_status(state.get("intake_safety_check")) == "unsafe"
+        and not state.get("safety_guidance_acknowledged")
+    ):
+        user_input = interrupt({
+            "type": "unsafe_booking_acknowledgement",
+            "message": "Urgent safety guidance",
+            "request": (
+                f"{_crisis_response()} This booking service is not emergency care. "
+                "You can continue arranging a non-emergency appointment after acknowledging this guidance."
+            ),
+        })
+        acknowledged = _extract_resume_value(user_input, "unsafe_booking_acknowledgement") is True
         return Command(
-            update={"booking_initiated": False},
-            goto="respond"
+            update={"safety_guidance_acknowledged": bool(acknowledged)},
+            goto="collect_booking_info" if acknowledged else "respond",
         )
 
     # 3. Collect only intake details that were not already volunteered.
@@ -394,59 +419,19 @@ async def collect_booking_info(state: MentalHealthAgentState) -> Command[Literal
             goto="collect_booking_info"
         )
 
-    # 4. Booking contact details
-    if not state.get("user_Fname"):
+    # 4. Collect contact details in one validated form instead of four chat turns.
+    if not all(
+        state.get(field)
+        for field in ("user_Fname", "user_Lname", "user_phonenumber", "user_email", "sms_call_consent")
+    ):
         user_input = interrupt({
-            "type": "user_Fname",
-            "message": "User First name Required",
-            "request": "Before I proceed to book your appointment I'll need your first name"
+            "type": "contact_details",
+            "message": "Contact details",
+            "request": "Enter your contact details so the clinic can confirm your appointment.",
+            "phone_hint": "+1 734 555 0123",
         })
         return Command(
-            update={"user_Fname": _extract_resume_value(user_input, "user_Fname")},
-            goto="collect_booking_info"
-        )
-    
-    if not state.get("user_Lname"):
-        user_input = interrupt({
-            "type": "user_Lname",
-            "message": "User Last name Required",
-            "request": "Next, I'll need your Last name"
-        })
-        return Command(
-            update={"user_Lname": _extract_resume_value(user_input, "user_Lname")},
-            goto="collect_booking_info"
-        )
-        
-    if not state.get("user_phonenumber"):
-        user_input = interrupt({
-            "type": "user_phonenumber",
-            "message": "User phone number Required",
-            "request": "I'll also need your phone number to send appointment reminders"
-        })
-        return Command(
-            update={"user_phonenumber": _extract_resume_value(user_input, "user_phonenumber")},
-            goto="collect_booking_info"
-        )
-        
-    if not state.get("user_email"):
-        user_input = interrupt({
-            "type": "user_email",
-            "message": "User email Required",
-            "request": "And finally I'll need your email address so we can keep in touch"
-        })
-        return Command(
-            update={"user_email": _extract_resume_value(user_input, "user_email")},
-            goto="collect_booking_info"
-        )
-
-    if not state.get("sms_call_consent"):
-        user_input = interrupt({
-            "type": "sms_call_consent",
-            "message": "SMS and Call Consent",
-            "request": "Do you agree to receive appointment reminders by text message or phone call? Please answer yes or no."
-        })
-        return Command(
-            update={"sms_call_consent": _extract_resume_value(user_input, "sms_call_consent")},
+            update=_contact_state_updates(user_input),
             goto="collect_booking_info"
         )
 
@@ -462,14 +447,43 @@ async def respond(state: MentalHealthAgentState) -> dict:
     classification = state.get("classification") or {}
     if (
         classification.get("intent") == "urgent_help"
-        or classification.get("urgency") == "critical"
-        or _safety_status(state.get("intake_safety_check")) == "unsafe"
+        or (
+            classification.get("urgency") == "critical"
+            and not state.get("safety_guidance_acknowledged")
+        )
+        or (
+            _safety_status(state.get("intake_safety_check")) == "unsafe"
+            and not state.get("safety_guidance_acknowledged")
+        )
     ):
         return {
             "messages": [AIMessage(content=_crisis_response())],
             "response": _crisis_response(),
             "booking_initiated": False,
         }
+
+    closing_text = closing_response(
+        state["user_message"],
+        booking_completed=bool(state.get("booking_completed")),
+    )
+    if closing_text:
+        return {
+            "messages": [AIMessage(content=closing_text)],
+            "response": closing_text,
+            "booking_initiated": False,
+        }
+
+    if classification.get("intent") == "booking" and state.get("eligibility_status") == "ineligible":
+        text = (
+            f"Corner Health currently books patients ages {MIN_ELIGIBLE_AGE} to {MAX_ELIGIBLE_AGE}. "
+            "If the age you entered was incorrect, tell me the corrected age. Otherwise, please contact "
+            "the clinic directly for alternate support."
+        )
+        return {"messages": [AIMessage(content=text)], "response": text, "booking_initiated": False}
+
+    if classification.get("intent") == "booking" and state.get("booking_initiated"):
+        text = "Thanks. Your intake information is ready. Choose an available doctor and time below."
+        return {"messages": [AIMessage(content=text)], "response": text, "booking_initiated": True}
     
     history_str = "\n".join([f"{msg.type.capitalize()}: {msg.content}" for msg in state.get("messages", [])])
 
@@ -496,7 +510,7 @@ async def respond(state: MentalHealthAgentState) -> dict:
     ### SAFETY RULES (VERY IMPORTANT)
     1. If intent == "booking" and eligibility_status == "ineligible":
         - Do not continue booking.
-        - Explain that this service is designed for young people ages 12 to 25.
+        - Explain that this service is designed for young people ages {MIN_ELIGIBLE_AGE} to {MAX_ELIGIBLE_AGE}.
         - Encourage them to contact the clinic directly for guidance or alternate resources.
         - Keep the tone respectful and brief.
 
@@ -599,16 +613,6 @@ def _build_workflow() -> StateGraph:
     workflow.add_edge("read_request", "classify_intent")
     workflow.add_edge("respond", END)
 
-    workflow.add_conditional_edges(
-        "classify_intent",
-        lambda x: x["classification"]["intent"],
-        {
-            "urgent_help": "respond",
-            "inquiry": "search_website_info",
-            "booking": "collect_booking_info",
-            "conversational": "respond",
-        },
-    )
     return workflow
 
 

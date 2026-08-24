@@ -22,6 +22,10 @@ class CalendarProvider(ABC):
         )
 
     @abstractmethod
+    async def validate_connection(self, token_data: Dict[str, Any]) -> None:
+        """Refresh credentials if needed and verify that the calendar is reachable."""
+
+    @abstractmethod
     async def get_available_slots(
         self,
         token_data: Dict[str, Any],

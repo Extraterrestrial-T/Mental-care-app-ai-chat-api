@@ -50,6 +50,21 @@ services:
       - huggingface-cache:/data/huggingface
     command: ["python", "deploy/rebuild_rag_index.py"]
 
+  calendar-health:
+    image: ${APP_IMAGE:?APP_IMAGE must be set in .release.env}
+    profiles:
+      - maintenance
+    env_file:
+      - .env
+    environment:
+      ENVIRONMENT: production
+      GOOGLE_APPLICATION_CREDENTIALS: /run/secrets/firebase-service-account.json
+      GOOGLE_CLIENT_SECRETS_FILE: /run/secrets/google-oauth-client.json
+    volumes:
+      - ${FIREBASE_CREDENTIALS_PATH:?FIREBASE_CREDENTIALS_PATH must be set in .env}:/run/secrets/firebase-service-account.json:ro
+      - ${GOOGLE_CLIENT_SECRETS_PATH:?GOOGLE_CLIENT_SECRETS_PATH must be set in .env}:/run/secrets/google-oauth-client.json:ro
+    command: ["python", "-m", "app.jobs.refresh_calendar_connections"]
+
   caddy:
     image: caddy:2.8-alpine
     restart: unless-stopped

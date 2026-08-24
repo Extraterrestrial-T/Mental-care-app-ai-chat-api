@@ -214,7 +214,7 @@
             <div id="interrupt-area" class="hidden p-4 mb-4 bg-indigo-50 rounded-2xl border border-indigo-100 fade-in">
                 <p class="text-xs font-semibold text-indigo-700 uppercase tracking-wider mb-2">Required Information</p>
                 <p class="text-sm text-indigo-900 mb-3" id="interrupt-request"></p>
-                <div class="space-y-2">
+                <div class="space-y-2" id="generic-interrupt-controls">
                     <input type="text" id="interrupt-input" 
                            class="w-full p-2.5 bg-white border border-indigo-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
                     <p class="error-text hidden" id="interrupt-error"></p>
@@ -222,6 +222,31 @@
                             class="w-full px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-xl hover:bg-indigo-700 transition shadow-sm">
                         Submit
                     </button>
+                </div>
+                <form id="contact-interrupt-controls" class="hidden space-y-3" onsubmit="handleContactDetails(event)">
+                    <div>
+                        <label for="contact-full-name" class="block text-xs font-semibold text-slate-700 mb-1">Full name</label>
+                        <input id="contact-full-name" autocomplete="name" class="w-full p-2.5 bg-white border border-indigo-200 rounded-lg text-sm" placeholder="First and last name">
+                    </div>
+                    <div>
+                        <label for="contact-phone" class="block text-xs font-semibold text-slate-700 mb-1">Phone number</label>
+                        <input id="contact-phone" type="tel" autocomplete="tel" class="w-full p-2.5 bg-white border border-indigo-200 rounded-lg text-sm" placeholder="+1 734 555 0123">
+                        <p class="mt-1 text-xs text-slate-500">Include the country code. Example: +1 734 555 0123</p>
+                    </div>
+                    <div>
+                        <label for="contact-email" class="block text-xs font-semibold text-slate-700 mb-1">Email</label>
+                        <input id="contact-email" type="email" autocomplete="email" class="w-full p-2.5 bg-white border border-indigo-200 rounded-lg text-sm" placeholder="name@example.com">
+                    </div>
+                    <label class="flex items-start gap-2 text-xs text-slate-700">
+                        <input id="contact-consent" type="checkbox" class="mt-0.5">
+                        <span>I agree to receive appointment reminders by text message or phone call.</span>
+                    </label>
+                    <p class="error-text hidden" id="contact-error"></p>
+                    <button type="submit" class="w-full px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition">Continue</button>
+                </form>
+                <div id="safety-interrupt-controls" class="hidden space-y-2">
+                    <button type="button" onclick="resumeSafetyGuidance(true)" class="w-full px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-lg hover:bg-indigo-700 transition">I understand, continue booking</button>
+                    <button type="button" onclick="resumeSafetyGuidance(false)" class="w-full px-4 py-2 border border-indigo-300 text-indigo-800 text-sm font-medium rounded-lg hover:bg-white transition">Stop booking</button>
                 </div>
             </div>
 
@@ -254,6 +279,9 @@
         const interruptRequest = document.getElementById('interrupt-request');
         const interruptInput = document.getElementById('interrupt-input');
         const interruptError = document.getElementById('interrupt-error');
+        const genericInterruptControls = document.getElementById('generic-interrupt-controls');
+        const contactInterruptControls = document.getElementById('contact-interrupt-controls');
+        const safetyInterruptControls = document.getElementById('safety-interrupt-controls');
         
         let ws = null;
         let waitingForResume = false;
@@ -277,8 +305,20 @@
         }
 
         function validatePhone(phone) {
-            const re = /^[\d\s\-\+\(\)]{10,}$/;
-            return re.test(phone);
+            const normalized = normalizePhone(phone);
+            return /^\+[1-9]\d{7,14}$/.test(normalized);
+        }
+
+        function normalizePhone(phone) {
+            let normalized = phone.replace(/[^\d+]/g, '');
+            if (normalized.startsWith('00')) normalized = `+${normalized.slice(2)}`;
+            return normalized;
+        }
+
+        function escapeHtml(value) {
+            return String(value ?? '').replace(/[&<>'"]/g, character => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
+            })[character]);
         }
 
         function scrollToBottom() { 
@@ -301,8 +341,8 @@
             const container = document.createElement('div');
             container.className = `flex ${sender === 'user' ? 'justify-end' : 'justify-start'} fade-in`;
             const bubble = document.createElement('div');
-            bubble.className = `max-w-[85%] p-4 text-sm leading-relaxed ${sender === 'user' ? 'user-bubble' : 'ai-bubble'}`;
-            bubble.innerHTML = content.replace(/\n/g, '<br>');
+            bubble.className = `max-w-[85%] p-4 text-sm leading-relaxed whitespace-pre-wrap ${sender === 'user' ? 'user-bubble' : 'ai-bubble'}`;
+            bubble.textContent = content;
             container.appendChild(bubble);
             chatOutput.appendChild(container);
             scrollToBottom();
@@ -318,12 +358,14 @@
         }
 
         function appendDoctorsList(doctors) {
+            document.getElementById('doctor-selection')?.remove();
             if (!doctors || doctors.length === 0) {
                 appendMessage("I'm sorry, there are no available doctors at the moment. Please try again later.", 'ai');
                 return;
             }
 
             const container = document.createElement('div');
+            container.id = 'doctor-selection';
             container.className = "fade-in mb-4 space-y-3";
             container.innerHTML = '<p class="text-sm font-semibold text-slate-700 mb-3">Select a doctor:</p>';
             
@@ -332,7 +374,9 @@
                 card.className = "doctor-card";
                 card.onclick = () => selectDoctor(doc, card);
                 
-                const avatarUrl = doc.profile_pic || `https://ui-avatars.com/api/?name=${encodeURIComponent(doc.name)}&background=6366f1&color=fff&bold=true`;
+                const avatarUrl = escapeHtml(doc.profile_pic || `https://ui-avatars.com/api/?name=${encodeURIComponent(doc.name)}&background=6366f1&color=fff&bold=true`);
+                const doctorName = escapeHtml(doc.name);
+                const doctorSpecialty = escapeHtml(doc.specialty);
                 
                 card.innerHTML = `
                     <div class="flex items-center gap-3">
@@ -340,8 +384,8 @@
                             <img src="${avatarUrl}" alt="Avatar" class="w-full h-full object-cover">
                         </div>
                         <div class="flex flex-col flex-grow">
-                            <span class="text-slate-900 font-semibold text-base">Dr. ${doc.name}</span>
-                            <span class="text-xs text-slate-500 font-medium">${doc.specialty}</span>
+                            <span class="text-slate-900 font-semibold text-base">Dr. ${doctorName}</span>
+                            <span class="text-xs text-slate-500 font-medium">${doctorSpecialty}</span>
                         </div>
                         <div class="text-indigo-600">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
@@ -571,6 +615,24 @@
             scrollToBottom();
         }
 
+        function showAvailabilityError(message) {
+            loadingIndicator.classList.add('hidden');
+            const widget = document.getElementById('booking-widget');
+            if (!widget) return;
+            widget.innerHTML = `
+                <div class="calendar-container slide-right">
+                    <div class="flex items-center justify-between mb-4">
+                        <button onclick="showCalendar()" class="p-2 hover:bg-slate-100 rounded-lg transition" aria-label="Choose another date">&larr;</button>
+                        <h3 class="text-base font-semibold text-slate-800">Calendar unavailable</h3>
+                        <div class="w-9"></div>
+                    </div>
+                    <p class="text-sm text-slate-600 mb-4" id="availability-error-text"></p>
+                    <button onclick="showCalendar()" class="w-full px-4 py-2 border border-indigo-300 text-indigo-700 text-sm font-semibold rounded-lg hover:bg-indigo-50 transition">Choose another date</button>
+                </div>`;
+            document.getElementById('availability-error-text').textContent = message;
+            scrollToBottom();
+        }
+
         function selectTimeSlot(slot, slotElement) {
             document.querySelectorAll('.time-slot').forEach(s => s.classList.remove('selected'));
             slotElement.classList.add('selected');
@@ -589,6 +651,9 @@
                 day: 'numeric',
                 year: 'numeric'
             });
+            const doctorName = escapeHtml(bookingState.selectedDoctor.name);
+            const doctorSpecialty = escapeHtml(bookingState.selectedDoctor.specialty);
+            const slotDisplay = escapeHtml(bookingState.selectedSlot.display);
             
             widget.innerHTML = `
                 <div class="calendar-container slide-right">
@@ -603,10 +668,10 @@
                     </div>
                     
                     <div class="bg-slate-50 p-3 rounded-lg mb-4 space-y-1 text-xs">
-                        <p><span class="font-semibold text-slate-700">Doctor:</span> Dr. ${bookingState.selectedDoctor.name}</p>
-                        <p><span class="font-semibold text-slate-700">Specialty:</span> ${bookingState.selectedDoctor.specialty}</p>
+                        <p><span class="font-semibold text-slate-700">Doctor:</span> Dr. ${doctorName}</p>
+                        <p><span class="font-semibold text-slate-700">Specialty:</span> ${doctorSpecialty}</p>
                         <p><span class="font-semibold text-slate-700">Date:</span> ${formattedDate}</p>
-                        <p><span class="font-semibold text-slate-700">Time:</span> ${bookingState.selectedSlot.display}</p>
+                        <p><span class="font-semibold text-slate-700">Time:</span> ${slotDisplay}</p>
                     </div>
                     
                     <div id="booking-error" class="hidden bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
@@ -660,6 +725,7 @@
                     doctor_id: bookingState.selectedDoctor.id,
                     patient_name: bookingState.patientName,
                     patient_email: bookingState.patientEmail,
+                    patient_phone: bookingState.patientPhone,
                     start_time: bookingState.selectedSlot.start,
                     end_time: bookingState.selectedSlot.end,
                     notes: additionalNotes
@@ -702,6 +768,9 @@
                     
                 } else if (data.type === 'availability_response') {
                     showTimeSlots(data.slots);
+
+                } else if (data.type === 'availability_error') {
+                    showAvailabilityError(data.message);
                     
                 } else if (data.type === 'booking_result') {
                     loadingIndicator.classList.add('hidden');
@@ -712,6 +781,7 @@
                         // Remove booking widget
                         const widget = document.getElementById('booking-widget');
                         if (widget) widget.remove();
+                        document.getElementById('doctor-selection')?.remove();
                         
                         bookingState = {
                             selectedDoctor: null,
@@ -731,7 +801,14 @@
                     waitingForResume = true;
                     interruptRequest.textContent = data.request;
                     interruptArea.classList.remove('hidden');
-                    interruptInput.focus();
+                    genericInterruptControls.classList.toggle('hidden', data.field === 'contact_details' || data.field === 'unsafe_booking_acknowledgement');
+                    contactInterruptControls.classList.toggle('hidden', data.field !== 'contact_details');
+                    safetyInterruptControls.classList.toggle('hidden', data.field !== 'unsafe_booking_acknowledgement');
+                    if (data.field === 'contact_details') {
+                        document.getElementById('contact-full-name').focus();
+                    } else if (data.field !== 'unsafe_booking_acknowledgement') {
+                        interruptInput.focus();
+                    }
                     
                 } else if (data.type === 'end') {
                     loadingIndicator.classList.add('hidden');
@@ -809,6 +886,55 @@
             appendMessage(val, 'user');
             
             interruptInput.value = '';
+            interruptArea.classList.add('hidden');
+            waitingForResume = false;
+            loadingIndicator.classList.remove('hidden');
+        }
+
+        function handleContactDetails(event) {
+            event.preventDefault();
+            const fullName = document.getElementById('contact-full-name').value.trim().replace(/\s+/g, ' ');
+            const phone = document.getElementById('contact-phone').value.trim();
+            const email = document.getElementById('contact-email').value.trim();
+            const consent = document.getElementById('contact-consent').checked;
+            const error = document.getElementById('contact-error');
+            error.classList.add('hidden');
+
+            if (fullName.split(' ').length < 2) {
+                error.textContent = 'Enter both a first name and surname.';
+            } else if (!validatePhone(phone)) {
+                error.textContent = 'Enter a valid number with country code, such as +1 734 555 0123.';
+            } else if (!validateEmail(email)) {
+                error.textContent = 'Enter a valid email address.';
+            } else {
+                const normalizedPhone = normalizePhone(phone);
+                bookingState.patientName = fullName;
+                bookingState.patientPhone = normalizedPhone;
+                bookingState.patientEmail = email;
+                ws.send(JSON.stringify({
+                    type: 'resume',
+                    resume_value: {
+                        full_name: fullName,
+                        phone: normalizedPhone,
+                        email,
+                        sms_call_consent: consent
+                    }
+                }));
+                appendMessage(`Contact details provided for ${fullName}.`, 'user');
+                interruptArea.classList.add('hidden');
+                waitingForResume = false;
+                loadingIndicator.classList.remove('hidden');
+                return;
+            }
+            error.classList.remove('hidden');
+        }
+
+        function resumeSafetyGuidance(continueBooking) {
+            ws.send(JSON.stringify({
+                type: 'resume',
+                resume_value: { unsafe_booking_acknowledgement: continueBooking }
+            }));
+            appendMessage(continueBooking ? 'I understand. Continue booking.' : 'Stop booking.', 'user');
             interruptArea.classList.add('hidden');
             waitingForResume = false;
             loadingIndicator.classList.remove('hidden');

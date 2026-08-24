@@ -39,6 +39,15 @@ class GoogleCalendarProvider(CalendarProvider):
             scopes=token_data.get("scopes"),
         )
 
+    async def validate_connection(self, token_data: Dict[str, Any]) -> None:
+        try:
+            creds = self._build_credentials(token_data)
+            service = build("calendar", "v3", credentials=creds, cache_discovery=False)
+            service.calendarList().get(calendarId="primary").execute()
+            self._copy_credentials_to_token_data(token_data, creds)
+        except RefreshError as e:
+            raise CalendarAuthorizationError("Google Calendar authorization expired") from e
+
     @staticmethod
     def _copy_credentials_to_token_data(
         token_data: Dict[str, Any], creds: Credentials
@@ -59,7 +68,7 @@ class GoogleCalendarProvider(CalendarProvider):
     ) -> List[Dict[str, Any]]:
         try:
             creds = self._build_credentials(token_data)
-            service = build("calendar", "v3", credentials=creds)
+            service = build("calendar", "v3", credentials=creds, cache_discovery=False)
 
             tz = ZoneInfo(token_data.get("timezone") or self.timezone)
             start_of_day = datetime.combine(date, datetime.min.time().replace(hour=9), tzinfo=tz)
@@ -107,7 +116,7 @@ class GoogleCalendarProvider(CalendarProvider):
                 raise ValueError("Valid patient email is required for calendar event")
 
             creds = self._build_credentials(token_data)
-            service = build("calendar", "v3", credentials=creds)
+            service = build("calendar", "v3", credentials=creds, cache_discovery=False)
             timezone = token_data.get("timezone") or self.timezone
 
             event = {
@@ -142,7 +151,7 @@ class GoogleCalendarProvider(CalendarProvider):
     async def cancel_appointment(self, token_data: Dict[str, Any], event_id: str) -> bool:
         try:
             creds = self._build_credentials(token_data)
-            service = build("calendar", "v3", credentials=creds)
+            service = build("calendar", "v3", credentials=creds, cache_discovery=False)
             service.events().delete(calendarId="primary", eventId=event_id, sendUpdates="all").execute()
             return True
         except Exception as e:
@@ -156,7 +165,7 @@ class GoogleCalendarProvider(CalendarProvider):
     ) -> List[Dict[str, Any]]:
         try:
             creds = self._build_credentials(token_data)
-            service = build("calendar", "v3", credentials=creds)
+            service = build("calendar", "v3", credentials=creds, cache_discovery=False)
 
             now = datetime.utcnow().isoformat() + "Z"
             end_date = (datetime.utcnow() + timedelta(days=days)).isoformat() + "Z"
@@ -218,6 +227,13 @@ def _build_available_slots(
 
             event_start = datetime.fromisoformat(event_start_raw.replace("Z", "+00:00"))
             event_end = datetime.fromisoformat(event_end_raw.replace("Z", "+00:00"))
+            # Microsoft Graph can return local dateTime values without an offset
+            # when an outlook.timezone preference is supplied. Treat those values
+            # as belonging to the same clinic timezone as the requested window.
+            if event_start.tzinfo is None:
+                event_start = event_start.replace(tzinfo=start_of_day.tzinfo)
+            if event_end.tzinfo is None:
+                event_end = event_end.replace(tzinfo=start_of_day.tzinfo)
 
             if current_time < event_end and slot_end > event_start:
                 is_available = False

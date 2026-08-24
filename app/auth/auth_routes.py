@@ -190,6 +190,7 @@ async def google_calendar_callback(request: Request):
             "scopes": creds.scopes,
             "token_expiry": creds.expiry.isoformat() if creds.expiry else None,
             "calendar_connected": True,
+            "calendar_status": "connected",
             "calendar_connection_error": None,
         }
         
@@ -306,6 +307,8 @@ async def microsoft_calendar_callback(request: Request):
             "scopes": tokens.get("scope", "").split(),
             "expires_at": time.time() + int(tokens.get("expires_in", 3600)),
             "calendar_connected": True,
+            "calendar_status": "connected",
+            "calendar_connection_error": None,
         }
 
         success = await firebase_service.save_doctor_credentials(doctor_id, calendar_data)

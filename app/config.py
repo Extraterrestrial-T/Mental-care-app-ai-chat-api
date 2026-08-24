@@ -68,6 +68,20 @@ class Settings(BaseSettings):
     
     # Redis
     REDIS_URL: str = os.getenv("REDIS_URL", "")
+
+    # Agent and booking policy
+    CHAT_MODEL: str = os.getenv("CHAT_MODEL", "google_genai:gemini-2.5-flash")
+    RAG_INDEX_DIR: str = os.getenv("RAG_INDEX_DIR", "app/agent/vector_index")
+    RAG_SOURCE_URL: str = os.getenv("RAG_SOURCE_URL", "https://cornerhealth.org")
+    CRISIS_SUPPORT_LINE: str = os.getenv("CRISIS_SUPPORT_LINE", "")
+    MIN_ELIGIBLE_AGE: int = int(os.getenv("MIN_ELIGIBLE_AGE", "12"))
+    MAX_ELIGIBLE_AGE: int = int(os.getenv("MAX_ELIGIBLE_AGE", "25"))
+    DEFAULT_HOSPITAL_ID: str = os.getenv(
+        "DEFAULT_HOSPITAL_ID", "hospital_og803xOzZUbJVRdyOFqycJuQwJD3"
+    )
+    CALENDAR_HEALTH_TTL_MINUTES: int = int(
+        os.getenv("CALENDAR_HEALTH_TTL_MINUTES", "15")
+    )
     
     class Config:
         env_file = ".env"

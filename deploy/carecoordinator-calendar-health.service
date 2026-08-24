@@ -1,0 +1,9 @@
+[Unit]
+Description=Refresh CareCoordinator calendar connection status
+Requires=docker.service
+After=docker.service network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/carecoordinator
+ExecStart=/usr/bin/docker compose --env-file .env --env-file .release.env --profile maintenance run --rm calendar-health

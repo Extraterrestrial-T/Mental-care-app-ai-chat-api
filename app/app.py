@@ -25,13 +25,12 @@ from app.agent.agent_core import get_agent_app
 # Import services
 from app.services.firebase_service import firebase_service
 from app.services.doctor_service import doctor_service
-from app.services.scheduling import get_calendar_provider
 
 # Global variables
 agent_instance = None
 agent_resources = None
 
-DEFAULT_HOSPITAL_ID = "hospital_og803xOzZUbJVRdyOFqycJuQwJD3"  # Fallback hospital ID
+DEFAULT_HOSPITAL_ID = settings.DEFAULT_HOSPITAL_ID
 
 
 @asynccontextmanager
@@ -223,15 +222,14 @@ async def websocket_chat(websocket: WebSocket):
                     # Get the conversation state to extract full chat history
                     state_snapshot = await agent_instance.aget_state(config)
                     state_values = state_snapshot.values
-                    conversation_history = state_values.get("messages", [])
-                    
-                    # Format conversation as notes
-                    conversation_notes = "=== CONVERSATION HISTORY ===\n\n"
-                    for msg in conversation_history:
-                        role = "Patient" if msg.type == "human" else "CeCe"
-                        conversation_notes += f"{role}: {msg.content}\n\n"
-                    
-                    conversation_notes += f"\n=== BOOKING DETAILS ===\n"
+                    booking_data["patient_name"] = (
+                        f"{state_values.get('user_Fname', '')} {state_values.get('user_Lname', '')}"
+                    ).strip()
+                    booking_data["patient_email"] = state_values.get("user_email", "")
+                    booking_data["patient_phone"] = state_values.get("user_phonenumber", "")
+                    # Keep sensitive intake details in the application datastore.
+                    # Calendar events receive only a minimal scheduling description.
+                    conversation_notes = "=== BOOKING INTAKE SUMMARY ===\n"
                     conversation_notes += f"Booked via CeCe chatbot on {datetime.now().strftime('%B %d, %Y at %I:%M %p')}\n"
                     conversation_notes += f"Age: {state_values.get('user_age', 'Not provided')}\n"
                     conversation_notes += f"Feeling recently: {state_values.get('intake_feeling', 'Not provided')}\n"
@@ -251,10 +249,21 @@ async def websocket_chat(websocket: WebSocket):
                         doctor_id=booking_data["doctor_id"],
                         patient_name=booking_data["patient_name"],
                         patient_email=booking_data["patient_email"],
+                        patient_phone=booking_data.get("patient_phone"),
                         start_time=start_time,
                         end_time=end_time,
-                        notes=conversation_notes
+                        notes=conversation_notes,
+                        hospital_id=state_values.get("hospital_id"),
                     )
+
+                    if result.get("success"):
+                        await agent_instance.aupdate_state(
+                            config,
+                            {
+                                "booking_initiated": False,
+                                "booking_completed": True,
+                            },
+                        )
                     
                     # Send result back to frontend
                     await websocket.send_json({
@@ -283,34 +292,7 @@ async def websocket_chat(websocket: WebSocket):
                 print(f"DEBUG: Fetching doctors for hospital: {hospital_id}")  # Debug log
                 
                 try:
-                    # Get all doctors from this hospital
-                    doctors = await firebase_service.get_doctors_by_hospital(hospital_id)
-                    
-                    print(f"DEBUG: Found {len(doctors)} total doctors")  # Debug log
-                    
-                    # Filter only doctors with connected calendars
-                    available_doctors = []
-                    for doctor in doctors:
-                        # The doctor dict should have 'id' from get_doctors_by_hospital
-                        doctor_id = doctor.get("id")
-                        if not doctor_id:
-                            print(f"WARNING: Doctor missing ID: {doctor.get('name')}")
-                            continue
-                            
-                        provider = get_calendar_provider(doctor)
-                        has_calendar = provider.is_connected(doctor)
-                        
-                        print(f"DEBUG: Doctor {doctor.get('name')} - Has calendar: {has_calendar}")  # Debug log
-                        
-                        if has_calendar:
-                            available_doctors.append({
-                                "id": doctor_id,
-                                "name": doctor.get("name"),
-                                "email": doctor.get("email"),
-                                "specialty": doctor.get("specialty", "Mental Health Professional"),
-                                "profile_pic": doctor.get("profile_pic"),
-                                "calendar_provider": doctor.get("calendar_provider") or provider.provider_name,
-                            })
+                    available_doctors = await doctor_service.list_bookable_doctors(hospital_id)
                     
                     print(f"DEBUG: Sending {len(available_doctors)} available doctors")  # Debug log
                     
@@ -350,7 +332,7 @@ async def websocket_chat(websocket: WebSocket):
                     
                     if "error" in availability:
                         await websocket.send_json({
-                            "type": "error",
+                            "type": "availability_error",
                             "message": availability["error"]
                         })
                     else:
@@ -366,8 +348,8 @@ async def websocket_chat(websocket: WebSocket):
                     import traceback
                     traceback.print_exc()
                     await websocket.send_json({
-                        "type": "error",
-                        "message": f"Failed to get availability: {str(e)}"
+                        "type": "availability_error",
+                        "message": "This calendar is temporarily unavailable. Please select another doctor or try again shortly."
                     })
                 
                 continue
@@ -405,7 +387,12 @@ async def websocket_chat(websocket: WebSocket):
                     await websocket.send_json({
                         "type": "interrupt",
                         "request": interrupt_payload["request"],
-                        "field": interrupt_payload.get("type")
+                        "field": interrupt_payload.get("type"),
+                        "metadata": {
+                            key: value
+                            for key, value in interrupt_payload.items()
+                            if key not in {"type", "request", "message"}
+                        },
                     })
                     break
                 
@@ -442,6 +429,12 @@ async def websocket_chat(websocket: WebSocket):
                                 "phone": patient_phone
                             }
                         })
+                        # booking_initiated is an event, not a permanent state. Once
+                        # emitted, a later "thanks" must not reopen the doctor picker.
+                        await agent_instance.aupdate_state(
+                            config,
+                            {"booking_initiated": False},
+                        )
                     else:
                         # Normal response
                         await websocket.send_json({

@@ -46,7 +46,6 @@ async def get_appointments(
         start_date=start_date,
         end_date=end_date
     )
-    print(appointments)
     return {"appointments": appointments}
 
 

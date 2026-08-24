@@ -335,8 +335,9 @@
 
             // Profile Area
             const profileArea = document.getElementById('profile-area');
-            const fname = user.name.split(' ')[0];
-            const lname = user.name.split(' ')[1];
+            const nameParts = (user.name || 'Doctor').trim().split(/\s+/);
+            const fname = nameParts[0];
+            const lname = nameParts.slice(1).join(' ');
             const initials = ((fname?.[0] || 'D') + (lname?.[0] || '')).toUpperCase();
             
             if (doctorData.doctor.calendar_connected && user.picture) {
@@ -349,10 +350,11 @@
             const statusEl = document.getElementById('calendar-status');
             console.log("Calendar Connected:", doctorData.doctor.calendar_connected);
             if (doctorData.doctor.calendar_connected) {
+                const providerName = doctorData.doctor.calendar_provider === 'microsoft' ? 'Outlook' : 'Google Calendar';
                 statusEl.innerHTML = `
                     <div class="flex items-center gap-3 mb-4">
                         <div class="w-8 h-8 bg-green-500 rounded-lg flex items-center justify-center text-white">✓</div>
-                        <span class="text-sm font-bold">Google Calendar Linked</span>
+                        <span class="text-sm font-bold">${providerName} linked</span>
                     </div>
                     <p class="text-xs text-slate-400">Synced and ready.</p>
                 `;
@@ -367,7 +369,7 @@
             }
 
             // Stats - handle appointments being an object or array
-            const appointments = doctorData.appointments.upcoming;
+            const appointments = scheduleData;
             
             const todayAppts = appointments.filter(a => isSameDay(new Date(a.start_time), new Date()));
             document.getElementById('stat-today').textContent = todayAppts.length;

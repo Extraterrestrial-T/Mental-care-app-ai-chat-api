@@ -234,7 +234,7 @@
 
         function updateStats() {
             const doctors = hospitalData.doctors || [];
-            const connected = doctors.filter(d => d.token && d.refresh_token && d.token_uri).length;
+            const connected = doctors.filter(d => d.calendar_connected === true).length;
             
             const today = new Date().setHours(0,0,0,0);
             const todayAppts = allAppointments.filter(a => {
@@ -290,6 +290,11 @@
             
             grid.innerHTML = doctors.map(doc => {
                 const connected = doc.calendar_connected;
+                const statusLabel = doc.calendar_status === 'temporarily_unavailable'
+                    ? 'Temporarily unavailable'
+                    : doc.calendar_status === 'reauthorization_required'
+                        ? 'Reconnect required'
+                        : connected ? 'Calendar connected' : 'Not connected';
                 const initials = doc.name?.split(' ').map(n => n[0]).join('').toUpperCase() || 'DR';
                 const profilePic = doc.profile_pic || null;
                 
@@ -307,7 +312,7 @@
                         </div>
                         <div class="flex items-center justify-between">
                             <span class="text-xs font-semibold px-3 py-1 rounded-full ${connected ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}">
-                                ${connected ? '✓ Calendar Connected' : '✗ Not Connected'}
+                                ${statusLabel}
                             </span>
                         </div>
                     </div>
@@ -446,7 +451,7 @@
         function showAddDoctorModal() {
             const hospitalId = hospitalData.hospital?.id || hospitalData.hospital_id;
             document.getElementById('modal-hospital-id').textContent = hospitalId;
-            document.getElementById('doctor-signup-link').value = `https://carecoordinator.org/signup/doctor?hospital_id=${hospitalId}`;
+            document.getElementById('doctor-signup-link').value = `${window.location.origin}/signup/doctor?hospital_id=${encodeURIComponent(hospitalId)}`;
             document.getElementById('add-doctor-modal').classList.remove('hidden');
         }
 
