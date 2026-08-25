@@ -49,10 +49,9 @@ class MicrosoftGraphCalendarProvider(CalendarProvider):
         token = token_data.get("token")
         expires_at = token_data.get("expires_at")
 
-        # A missing expiry means an existing token may be used. A zero or invalid
-        # expiry must never be interpreted as missing because it represents an
-        # expired credential in persisted Microsoft token data.
-        token_is_fresh = expires_at is None
+        # Legacy records without expiry metadata must refresh proactively. An
+        # unverified access token should never be assumed to be current.
+        token_is_fresh = False
         if expires_at is not None:
             try:
                 token_is_fresh = float(expires_at) > datetime.now(timezone.utc).timestamp() + 60

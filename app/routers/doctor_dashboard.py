@@ -32,6 +32,31 @@ async def get_dashboard_data(doctor_id: str = Depends(require_doctor_auth)):
     return data
 
 
+@router.post("/api/calendar/refresh")
+async def refresh_calendar_connection(
+    doctor_id: str = Depends(require_doctor_auth),
+):
+    """Force a calendar connection check for the signed-in clinician."""
+    calendar = await doctor_service.refresh_calendar_connection(doctor_id)
+    if not calendar:
+        raise HTTPException(status_code=404, detail="Doctor not found")
+    connected = calendar.get("calendar_connected") is True
+    status = calendar.get("calendar_status") or "unknown"
+    return {
+        "connected": connected,
+        "status": status,
+        "provider": calendar.get("calendar_provider"),
+        "last_checked_at": calendar.get("calendar_last_checked_at"),
+        "message": (
+            "Calendar connection is healthy."
+            if connected
+            else "Calendar authorization must be renewed."
+            if status == "reauthorization_required"
+            else "The calendar is temporarily unavailable. Try again or reconnect it."
+        ),
+    }
+
+
 @router.get("/api/appointments")
 async def get_appointments(
     doctor_id: str = Depends(require_doctor_auth),

@@ -297,6 +297,12 @@
                         : connected ? 'Calendar connected' : 'Not connected';
                 const initials = doc.name?.split(' ').map(n => n[0]).join('').toUpperCase() || 'DR';
                 const profilePic = doc.profile_pic || null;
+                const publiclyBookable = doc.published_on_website === true
+                    && doc.accepting_online_bookings === true
+                    && doc.is_demo !== true;
+                const publicationLabel = doc.is_demo
+                    ? 'Demo hidden'
+                    : publiclyBookable ? 'Visible for booking' : 'Hidden from booking';
                 
                 return `
                     <div onclick='selectDoctor(${JSON.stringify(doc).replace(/'/g, "&apos;")})' class="doctor-card p-6 bg-white rounded-2xl shadow-sm border-2 border-slate-100">
@@ -314,10 +320,39 @@
                             <span class="text-xs font-semibold px-3 py-1 rounded-full ${connected ? 'bg-emerald-50 text-emerald-600' : 'bg-amber-50 text-amber-600'}">
                                 ${statusLabel}
                             </span>
+                            <span class="text-[11px] font-semibold ${publiclyBookable ? 'text-emerald-700' : 'text-slate-500'}">${publicationLabel}</span>
                         </div>
+                        <button type="button"
+                                onclick="event.stopPropagation(); updateBookingVisibility('${doc.id}', ${!publiclyBookable})"
+                                class="mt-4 w-full rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50">
+                            ${publiclyBookable ? 'Hide from online booking' : 'Enable online booking'}
+                        </button>
                     </div>
                 `;
             }).join('');
+        }
+
+        async function updateBookingVisibility(doctorId, enabled) {
+            try {
+                const response = await fetch(`/hospital/api/doctors/${encodeURIComponent(doctorId)}/booking-settings`, {
+                    method: 'PATCH',
+                    credentials: 'include',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        published_on_website: enabled,
+                        accepting_online_bookings: enabled,
+                        is_demo: false
+                    })
+                });
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.detail || 'Could not update clinician');
+
+                const index = hospitalData.doctors.findIndex(doctor => doctor.id === doctorId);
+                if (index >= 0) hospitalData.doctors[index] = result.doctor;
+                renderDoctors();
+            } catch (error) {
+                alert(error.message || 'Could not update online booking visibility.');
+            }
         }
 
         function selectDoctor(doctor) {

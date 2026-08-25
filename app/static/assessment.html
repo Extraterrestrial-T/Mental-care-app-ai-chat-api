@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex,nofollow">
+  <title>Mental health check-in | Corner Health</title>
+  <style>
+    :root { color-scheme: light; --ink:#172033; --muted:#5d687a; --line:#dce2ea; --brand:#315c52; --brand-dark:#23453e; --soft:#edf5f2; --alert:#a72b2b; --alert-bg:#fff1f1; }
+    * { box-sizing:border-box; letter-spacing:0; }
+    body { margin:0; background:#f5f7f8; color:var(--ink); font:16px/1.5 Arial, sans-serif; }
+    a { color:var(--brand-dark); }
+    header { background:#fff; border-bottom:1px solid var(--line); }
+    .bar { max-width:960px; margin:auto; padding:16px 24px; display:flex; justify-content:space-between; align-items:center; gap:20px; }
+    .brand { font-size:20px; font-weight:700; text-decoration:none; color:var(--ink); }
+    .back { font-weight:600; text-decoration:none; }
+    main { max-width:760px; margin:auto; padding:36px 24px 64px; }
+    h1 { font-size:32px; line-height:1.15; margin:0 0 12px; }
+    h2 { font-size:21px; margin:0 0 8px; }
+    p { margin:0 0 16px; }
+    .intro { color:var(--muted); font-size:17px; margin-bottom:28px; }
+    .panel { background:#fff; border:1px solid var(--line); border-radius:8px; padding:24px; margin:0 0 20px; }
+    .notice { border-left:4px solid var(--alert); background:var(--alert-bg); }
+    label { font-weight:600; display:block; }
+    input[type="number"], input[type="text"], input[type="email"], input[type="tel"], select { width:100%; margin-top:7px; border:1px solid #aeb8c6; border-radius:6px; padding:12px; min-height:46px; font:inherit; color:inherit; background:#fff; }
+    input:focus, select:focus, button:focus-visible, a:focus-visible { outline:3px solid #95c7bb; outline-offset:2px; }
+    .checks { display:grid; gap:14px; margin-top:18px; }
+    .check { display:grid; grid-template-columns:22px 1fr; gap:10px; font-weight:400; align-items:start; }
+    .check input { width:18px; height:18px; margin:3px 0 0; }
+    button { border:0; border-radius:6px; min-height:46px; padding:11px 18px; font:700 16px Arial, sans-serif; cursor:pointer; }
+    .primary { background:var(--brand); color:#fff; }
+    .primary:hover { background:var(--brand-dark); }
+    button:disabled { cursor:not-allowed; opacity:.55; }
+    .question { padding:22px 0; border-bottom:1px solid var(--line); }
+    .question:last-child { border-bottom:0; }
+    fieldset { border:0; margin:0; padding:0; min-width:0; }
+    legend { font-weight:700; padding:0; margin-bottom:13px; }
+    .options { display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:8px; }
+    .option { position:relative; }
+    .option input { position:absolute; opacity:0; pointer-events:none; }
+    .option span { min-height:58px; height:100%; display:flex; align-items:center; justify-content:center; text-align:center; padding:8px; border:1px solid #aeb8c6; border-radius:6px; font-size:13px; font-weight:600; cursor:pointer; }
+    .option input:checked + span { background:var(--brand); color:#fff; border-color:var(--brand); }
+    .option input:focus-visible + span { outline:3px solid #95c7bb; outline-offset:2px; }
+    .binary { grid-template-columns:repeat(2, minmax(0,160px)); }
+    .safety { border:2px solid var(--alert); background:var(--alert-bg); }
+    .safety h2 { color:var(--alert); }
+    .error { color:var(--alert); font-weight:700; margin-top:14px; }
+    .success { border-left:4px solid var(--brand); background:var(--soft); }
+    .hidden { display:none !important; }
+    .fine { color:var(--muted); font-size:14px; }
+    .actions { display:flex; justify-content:flex-end; margin-top:22px; }
+    @media (max-width:680px) { main{padding:26px 16px 48px}.bar{padding:14px 16px}h1{font-size:27px}.panel{padding:18px}.options{grid-template-columns:1fr 1fr}.option span{min-height:54px}.binary{grid-template-columns:1fr 1fr} }
+  </style>
+</head>
+<body>
+  <header><div class="bar"><a class="brand" href="/">Corner Health check-in</a><a class="back" href="/">Back to CeCe</a></div></header>
+  <main>
+    <h1>Mental health check-in</h1>
+    <p class="intro">Tell the care team how you have been feeling during the past two weeks. This screening is not a diagnosis and does not start an appointment booking.</p>
+
+    <section class="panel notice" aria-labelledby="emergency-title">
+      <h2 id="emergency-title">This form is not monitored for emergencies</h2>
+      <p>If you may act on thoughts of suicide or self-harm, call <a href="tel:911">911</a> now or go to the nearest emergency department. Call or text <a href="tel:988">988</a>, or call Corner Health's after-hours psychiatric line at <a href="tel:+17349365900">734-936-5900</a>. Stay with a trusted person.</p>
+    </section>
+
+    <form id="setup-form" class="panel">
+      <h2>Before you begin</h2>
+      <label for="age">Your age
+        <input id="age" name="age" type="number" min="12" max="25" inputmode="numeric" required>
+      </label>
+      <div class="checks">
+        <label class="check"><input id="emergency-ack" type="checkbox" required><span>I understand that this form is not an emergency service.</span></label>
+        <label class="check"><input id="consent" type="checkbox" required><span>I consent to submit my answers and contact details to Corner Health for staff review.</span></label>
+      </div>
+      <p id="setup-error" class="error hidden" role="alert"></p>
+      <div class="actions"><button class="primary" type="submit">Start check-in</button></div>
+    </form>
+
+    <form id="assessment-form" class="hidden" novalidate>
+      <section class="panel">
+        <h2 id="instrument-title">During the past two weeks</h2>
+        <p class="fine">Choose one answer for every statement.</p>
+        <div id="questions"></div>
+        <div id="past-year-wrap" class="question hidden"></div>
+        <div class="question">
+          <label for="difficulty">How difficult have these concerns made it to do your work, take care of things at home, or get along with other people?</label>
+          <select id="difficulty" required><option value="">Select one</option></select>
+        </div>
+      </section>
+
+      <section id="safety-panel" class="panel safety hidden" aria-labelledby="safety-title">
+        <h2 id="safety-title">Your safety comes first</h2>
+        <p>Because of your answer, please answer these safety questions. If you are in immediate danger, do not wait for this form: call <a href="tel:911">911</a>, call or text <a href="tel:988">988</a>, or call Corner Health after hours at <a href="tel:+17349365900">734-936-5900</a>, and tell a trusted person now.</p>
+        <div id="safety-questions"></div>
+        <div id="current-thoughts-wrap" class="question hidden"></div>
+      </section>
+
+      <section class="panel">
+        <h2>How staff can reach you</h2>
+        <p class="fine">Contact details are collected after the check-in and are not used to book an appointment automatically.</p>
+        <div class="question"><label for="full-name">First name and surname<input id="full-name" type="text" autocomplete="name" maxlength="120" required></label></div>
+        <div class="question"><label for="phone">Phone number <span class="fine">(include country code, for example +1 734 555 0123)</span><input id="phone" type="tel" autocomplete="tel" maxlength="30" required></label></div>
+        <div class="question"><label for="email">Email address<input id="email" type="email" autocomplete="email" maxlength="254" required></label></div>
+        <p id="form-error" class="error hidden" role="alert"></p>
+        <div class="actions"><button id="submit-button" class="primary" type="submit">Submit for staff review</button></div>
+      </section>
+    </form>
+
+    <section id="result" class="panel success hidden" tabindex="-1"></section>
+  </main>
+  <script>
+    const setupForm = document.getElementById('setup-form');
+    const assessmentForm = document.getElementById('assessment-form');
+    const questions = document.getElementById('questions');
+    const safetyPanel = document.getElementById('safety-panel');
+    const safetyQuestions = document.getElementById('safety-questions');
+    const currentThoughtsWrap = document.getElementById('current-thoughts-wrap');
+    let schema = null;
+    let age = null;
+
+    function radioGroup(name, options, selectedHandler) {
+      const wrap = document.createElement('div');
+      wrap.className = `options ${options.length === 2 ? 'binary' : ''}`;
+      options.forEach(option => {
+        const label = document.createElement('label');
+        label.className = 'option';
+        const input = document.createElement('input');
+        input.type = 'radio'; input.name = name; input.value = String(option.value); input.required = true;
+        if (selectedHandler) input.addEventListener('change', selectedHandler);
+        const text = document.createElement('span'); text.textContent = option.label;
+        label.append(input, text); wrap.appendChild(label);
+      });
+      return wrap;
+    }
+
+    function questionBlock(legendText, groupName, options, handler) {
+      const block = document.createElement('div'); block.className = 'question';
+      const fieldset = document.createElement('fieldset');
+      const legend = document.createElement('legend'); legend.textContent = legendText;
+      fieldset.append(legend, radioGroup(groupName, options, handler)); block.appendChild(fieldset);
+      return block;
+    }
+
+    function selectedNumber(name) {
+      const input = document.querySelector(`input[name="${name}"]:checked`);
+      return input ? Number(input.value) : null;
+    }
+
+    function selectedBoolean(name) {
+      const input = document.querySelector(`input[name="${name}"]:checked`);
+      return input ? input.value === 'true' : null;
+    }
+
+    function updateSafetyVisibility() {
+      const itemNine = selectedNumber('question-9');
+      const safetyRequired = itemNine !== null && itemNine > 0;
+      safetyPanel.classList.toggle('hidden', !safetyRequired);
+      safetyPanel.querySelectorAll('input').forEach(input => { input.disabled = !safetyRequired; });
+      const primaryPositive = schema.safety_followup_questions.some(item => selectedBoolean(`safety-${item.id}`) === true);
+      currentThoughtsWrap.classList.toggle('hidden', !primaryPositive);
+      currentThoughtsWrap.querySelectorAll('input').forEach(input => { input.disabled = !primaryPositive; });
+    }
+
+    function renderForm() {
+      questions.replaceChildren(); safetyQuestions.replaceChildren();
+      schema.questions.forEach((item, index) => questions.appendChild(questionBlock(`${index + 1}. ${item.text}`, `question-${item.id}`, item.options, index === 8 ? updateSafetyVisibility : null)));
+      const difficulty = document.getElementById('difficulty');
+      difficulty.replaceChildren(new Option('Select one', ''));
+      schema.functional_difficulty_options.forEach(value => difficulty.add(new Option(value, value)));
+
+      const pastYearWrap = document.getElementById('past-year-wrap');
+      pastYearWrap.replaceChildren();
+      pastYearWrap.classList.toggle('hidden', !schema.asks_past_year_depressed);
+      if (schema.asks_past_year_depressed) pastYearWrap.appendChild(questionBlock('In the past year, have you felt depressed or sad most days, even if you felt okay sometimes?', 'past-year', [{value:true,label:'Yes'},{value:false,label:'No'}]));
+
+      schema.safety_followup_questions.forEach(item => safetyQuestions.appendChild(questionBlock(item.text, `safety-${item.id}`, [{value:true,label:'Yes'},{value:false,label:'No'}], updateSafetyVisibility)));
+      currentThoughtsWrap.replaceChildren(questionBlock('Are you having thoughts of killing yourself right now?', 'current-thoughts', [{value:true,label:'Yes'},{value:false,label:'No'}]));
+      safetyPanel.querySelectorAll('input').forEach(input => { input.disabled = true; });
+    }
+
+    setupForm.addEventListener('submit', async event => {
+      event.preventDefault();
+      const error = document.getElementById('setup-error'); error.classList.add('hidden');
+      age = Number(document.getElementById('age').value);
+      if (!Number.isInteger(age) || age < 12 || age > 25 || !setupForm.reportValidity()) return;
+      try {
+        const response = await fetch(`/api/assessments/schema?age=${age}`, {cache:'no-store'});
+        if (!response.ok) throw new Error('This check-in is not available for that age.');
+        schema = await response.json(); renderForm();
+        setupForm.classList.add('hidden'); assessmentForm.classList.remove('hidden');
+        document.getElementById('instrument-title').focus?.(); window.scrollTo({top:0, behavior:'smooth'});
+      } catch (err) { error.textContent = err.message; error.classList.remove('hidden'); }
+    });
+
+    assessmentForm.addEventListener('submit', async event => {
+      event.preventDefault();
+      const error = document.getElementById('form-error'); error.classList.add('hidden');
+      const answers = schema.questions.map(item => selectedNumber(`question-${item.id}`));
+      const itemNinePositive = answers[8] > 0;
+      const followup = {};
+      if (itemNinePositive) {
+        schema.safety_followup_questions.forEach(item => { followup[item.id] = selectedBoolean(`safety-${item.id}`); });
+        followup.current_thoughts = selectedBoolean('current-thoughts');
+      }
+      if (answers.some(value => value === null) || !assessmentForm.reportValidity()) {
+        error.textContent = 'Please answer every required question.'; error.classList.remove('hidden'); return;
+      }
+      const button = document.getElementById('submit-button'); button.disabled = true;
+      const payload = {
+        age, instrument:schema.instrument, instrument_version:schema.version, answers,
+        functional_difficulty:document.getElementById('difficulty').value,
+        past_year_depressed:schema.asks_past_year_depressed ? selectedBoolean('past-year') : null,
+        safety_followup:itemNinePositive ? followup : null,
+        contact:{full_name:document.getElementById('full-name').value, phone:document.getElementById('phone').value, email:document.getElementById('email').value},
+        consent_to_submit:document.getElementById('consent').checked,
+        emergency_notice_acknowledged:document.getElementById('emergency-ack').checked
+      };
+      try {
+        const response = await fetch('/api/assessments/submit', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)});
+        const data = await response.json();
+        if (!response.ok) throw new Error(typeof data.detail === 'string' ? data.detail : 'The check-in could not be submitted.');
+        assessmentForm.replaceChildren(); assessmentForm.classList.add('hidden');
+        const result = document.getElementById('result'); result.classList.remove('hidden');
+        const heading = document.createElement('h2'); heading.textContent = data.requires_immediate_action ? 'Get immediate help now' : 'Check-in submitted';
+        const message = document.createElement('p'); message.textContent = data.message;
+        result.append(heading, message); result.focus();
+      } catch (err) { error.textContent = err.message; error.classList.remove('hidden'); button.disabled = false; }
+    });
+  </script>
+</body>
+</html>

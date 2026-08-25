@@ -95,6 +95,9 @@ class FirebaseAuthService:
                 "specialty": specialty or "General Practice",
                 "hospital_id": hospital_id,
                 "firebase_uid": user.uid,
+                "published_on_website": False,
+                "accepting_online_bookings": False,
+                "is_demo": False,
                 "linked_at": firestore.SERVER_TIMESTAMP
             }
             

@@ -133,11 +133,20 @@ async def register_doctor(doctor: DoctorSignup):
         if not result["success"]:
             raise HTTPException(status_code=400, detail=result["error"])
         
-        return {
+        response = JSONResponse({
             "success": True,
             "message": "Account created successfully!",
             "doctor_id": result["doctor_id"]
-        }
+        })
+        response.set_cookie(
+            key=settings.SESSION_COOKIE_NAME,
+            value=result["doctor_id"],
+            max_age=settings.SESSION_MAX_AGE,
+            httponly=True,
+            samesite="lax",
+            secure=settings.IS_PRODUCTION,
+        )
+        return response
         
     except HTTPException:
         raise

@@ -162,6 +162,9 @@
                         </div>
                     </div>
 
+                    <!-- Calendar connection and recovery -->
+                    <div id="schedule-calendar-status" class="p-5 rounded-lg bg-slate-900 text-white"></div>
+
                     <!-- Calendar Widget -->
                     <div class="bg-white p-6 rounded-[2.5rem] border border-slate-100 shadow-sm">
                         <div class="flex justify-between items-center mb-6 px-2">
@@ -290,7 +293,6 @@
                 }
                 doctorData = await res.json();
                 await loadScheduleData()
-                console.log("Doctor Data:", doctorData);
                 renderOverview();
                 
                 document.getElementById('loading').style.display = 'none';
@@ -346,27 +348,8 @@
                 profileArea.innerHTML = `<div class="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white text-xs font-bold shadow-sm">${initials}</div>`;
             }
 
-            // Status Card
-            const statusEl = document.getElementById('calendar-status');
-            console.log("Calendar Connected:", doctorData.doctor.calendar_connected);
-            if (doctorData.doctor.calendar_connected) {
-                const providerName = doctorData.doctor.calendar_provider === 'microsoft' ? 'Outlook' : 'Google Calendar';
-                statusEl.innerHTML = `
-                    <div class="flex items-center gap-3 mb-4">
-                        <div class="w-8 h-8 bg-green-500 rounded-lg flex items-center justify-center text-white">✓</div>
-                        <span class="text-sm font-bold">${providerName} linked</span>
-                    </div>
-                    <p class="text-xs text-slate-400">Synced and ready.</p>
-                `;
-            } else {
-                statusEl.innerHTML = `
-                    <h4 class="text-sm font-bold mb-2">Sync Calendar</h4>
-                    <div class="space-y-2">
-                        <button onclick="window.location.href='/auth/microsoft/connect?doctor_id=${doctorData.doctor.id}'" class="w-full py-3 bg-white text-slate-900 rounded-xl text-xs font-bold">Connect Outlook</button>
-                        <button onclick="window.location.href='/auth/calendar/connect?doctor_id=${doctorData.doctor.id}'" class="w-full py-3 bg-slate-700 text-white rounded-xl text-xs font-bold">Connect Google</button>
-                    </div>
-                `;
-            }
+            renderCalendarStatus('calendar-status');
+            renderCalendarStatus('schedule-calendar-status');
 
             // Stats - handle appointments being an object or array
             const appointments = scheduleData;
@@ -635,6 +618,109 @@
             setTimeout(() => t.style.opacity = '0', 3000);
         }
 
+        function calendarProviderDetails(provider) {
+            if (provider === 'microsoft') {
+                return { name: 'Outlook', connectUrl: '/auth/microsoft/connect' };
+            }
+            if (provider === 'google') {
+                return { name: 'Google Calendar', connectUrl: '/auth/calendar/connect' };
+            }
+            return { name: 'Calendar', connectUrl: '' };
+        }
+
+        function formatCalendarCheck(value) {
+            if (!value) return 'Not checked yet';
+            const date = new Date(value);
+            if (Number.isNaN(date.getTime())) return 'Recently checked';
+            return `Checked ${date.toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}`;
+        }
+
+        function renderCalendarStatus(elementId) {
+            const statusEl = document.getElementById(elementId);
+            if (!statusEl || !doctorData?.doctor) return;
+
+            const doctor = doctorData.doctor;
+            const provider = calendarProviderDetails(doctor.calendar_provider);
+            const status = doctor.calendar_status || (doctor.calendar_connected ? 'connected' : 'disconnected');
+            const isConnected = doctor.calendar_connected === true && status === 'connected';
+            const isTemporary = status === 'temporarily_unavailable';
+            const heading = isConnected
+                ? `${provider.name} connected`
+                : isTemporary
+                    ? `${provider.name} could not be reached`
+                    : doctor.calendar_provider
+                        ? `Reconnect ${provider.name}`
+                        : 'Connect your calendar';
+            const description = isConnected
+                ? 'Appointments and availability can be synchronized.'
+                : isTemporary
+                    ? 'The saved authorization may still be valid. Check again before relinking.'
+                    : 'Calendar authorization is missing or expired. Relink it to accept online bookings.';
+            const indicatorClass = isConnected ? 'bg-emerald-400' : isTemporary ? 'bg-amber-400' : 'bg-red-400';
+            const checkLabel = isTemporary ? 'Check again' : 'Check connection';
+
+            const providerActions = doctor.calendar_provider
+                ? `<button type="button" onclick="relinkCalendar('${doctor.calendar_provider}')" class="w-full py-3 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-xs font-bold">${isConnected ? 'Relink' : 'Reconnect'} ${provider.name}</button>`
+                : `<div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                       <button type="button" onclick="relinkCalendar('microsoft')" class="py-3 bg-white hover:bg-slate-100 text-slate-900 rounded-lg text-xs font-bold">Connect Outlook</button>
+                       <button type="button" onclick="relinkCalendar('google')" class="py-3 bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-xs font-bold">Connect Google</button>
+                   </div>`;
+
+            statusEl.innerHTML = `
+                <div class="flex items-start gap-3">
+                    <span class="mt-1.5 h-2.5 w-2.5 flex-none rounded-full ${indicatorClass}"></span>
+                    <div class="min-w-0">
+                        <h4 class="text-sm font-bold">${heading}</h4>
+                        <p class="mt-1 text-xs leading-5 text-slate-300">${description}</p>
+                        <p class="mt-1 text-[11px] text-slate-400">${formatCalendarCheck(doctor.calendar_last_checked_at)}</p>
+                    </div>
+                </div>
+                <div class="mt-4 space-y-2">
+                    ${doctor.calendar_provider ? `<button id="refresh-calendar-${elementId}" type="button" onclick="refreshCalendarConnection()" class="w-full py-3 bg-white hover:bg-slate-100 text-slate-900 rounded-lg text-xs font-bold">${checkLabel}</button>` : ''}
+                    ${providerActions}
+                </div>
+            `;
+        }
+
+        function relinkCalendar(provider) {
+            const details = calendarProviderDetails(provider);
+            if (!details.connectUrl) {
+                showToast('Choose Outlook or Google Calendar.');
+                return;
+            }
+            window.location.href = details.connectUrl;
+        }
+
+        async function refreshCalendarConnection() {
+            const buttons = document.querySelectorAll('[id^="refresh-calendar-"]');
+            buttons.forEach(button => {
+                button.disabled = true;
+                button.textContent = 'Checking...';
+                button.classList.add('opacity-60');
+            });
+
+            try {
+                const response = await fetch('/doctor/api/calendar/refresh', {
+                    method: 'POST',
+                    credentials: 'include',
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                });
+                if (response.status === 401) {
+                    window.location.href = '/auth/login';
+                    return;
+                }
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.detail || 'Calendar check failed');
+                showToast(result.message);
+                await loadDashboard();
+                if (currentTab === 'schedule') switchTab('schedule');
+            } catch (error) {
+                showToast(error.message || 'Could not check the calendar.');
+                renderCalendarStatus('calendar-status');
+                renderCalendarStatus('schedule-calendar-status');
+            }
+        }
+
         function isSameDay(d1, d2) {
             if (!d1 || !d2) return false;
             return d1.getDate() === d2.getDate() && 
@@ -655,7 +741,14 @@
         }
 
         // Start
-        loadDashboard();
+        loadDashboard().then(() => {
+            const url = new URL(window.location.href);
+            if (url.searchParams.get('calendar') === 'connected') {
+                showToast('Calendar linked successfully.');
+                url.searchParams.delete('calendar');
+                window.history.replaceState({}, '', url);
+            }
+        });
     </script>
 </body>
 </html>

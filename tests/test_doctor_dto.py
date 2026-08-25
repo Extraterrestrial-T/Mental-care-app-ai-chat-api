@@ -30,6 +30,32 @@ class DoctorDtoTests(unittest.TestCase):
         self.assertIn("2026-08-24T12:30:00+00:00", encoded)
         self.assertIn("2026-08-20T09:00:00+00:00", encoded)
 
+    def test_safe_doctor_does_not_invent_provider_without_credentials(self):
+        payload = DoctorService._safe_doctor(
+            {
+                "id": "doctor-2",
+                "name": "No Calendar",
+                "calendar_connected": False,
+                "calendar_status": "reauthorization_required",
+            }
+        )
+
+        self.assertIsNone(payload["calendar_provider"])
+
+    def test_safe_doctor_identifies_legacy_google_credentials(self):
+        payload = DoctorService._safe_doctor(
+            {
+                "id": "doctor-3",
+                "name": "Legacy Doctor",
+                "calendar_connected": True,
+                "calendar_status": "connected",
+                "token": "access-token",
+                "refresh_token": "refresh-token",
+            }
+        )
+
+        self.assertEqual(payload["calendar_provider"], "google")
+
 
 if __name__ == "__main__":
     unittest.main()

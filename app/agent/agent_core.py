@@ -24,12 +24,20 @@ from redis.asyncio import Redis as AsyncRedisClient
 from app.config import settings
 from app.agent.booking_logic import (
     apply_message_corrections,
+    asks_about_therapy_process,
     closing_response,
+    contains_crisis_signal,
+    declines_booking,
     extract_age_from_message as _extract_age_from_message,
+    expresses_low_mood,
+    invites_supportive_conversation,
     is_gratitude,
     normalize_contact_details,
     parse_age as _parse_age,
     requests_booking,
+    requests_assessment,
+    requests_stress_relief,
+    reset_booking_state,
     safety_status as _safety_status,
 )
 
@@ -42,6 +50,10 @@ RAG_INDEX_DIR = Path(settings.RAG_INDEX_DIR)
 RAG_SOURCE_URL = settings.RAG_SOURCE_URL
 CHAT_MODEL = settings.CHAT_MODEL
 CRISIS_SUPPORT_LINE = settings.CRISIS_SUPPORT_LINE.strip()
+EMERGENCY_PHONE = settings.EMERGENCY_PHONE.strip()
+CRISIS_LIFELINE_PHONE = settings.CRISIS_LIFELINE_PHONE.strip()
+CLINIC_PHONE = settings.CLINIC_PHONE.strip()
+PSYCHIATRIC_EMERGENCY_PHONE = settings.PSYCHIATRIC_EMERGENCY_PHONE.strip()
 MIN_ELIGIBLE_AGE = settings.MIN_ELIGIBLE_AGE
 MAX_ELIGIBLE_AGE = settings.MAX_ELIGIBLE_AGE
 
@@ -140,7 +152,7 @@ def rag_tool(query: str) -> list[str]:
 # --- STATE & SCHEMAS ---
 
 class RequestClassification(TypedDict):
-    intent: Literal["inquiry", "booking", "urgent_help", "conversational"]
+    intent: Literal["inquiry", "booking", "assessment", "urgent_help", "conversational"]
     urgency: Literal["stable", "critical"]
     summary_request: str
 
@@ -178,10 +190,17 @@ class MentalHealthAgentState(TypedDict):
     correction_detected: bool | None
     safety_guidance_acknowledged: bool | None
     booking_completed: bool | None
+    booking_cancelled: bool | None
+    booking_ready_for_calendar: bool | None
+    assessment_offered: bool | None
+    selected_doctor_id: str | None
+    selected_doctor_name: str | None
     hospital_id: str | None  # NEW: Track which hospital
     classification: RequestClassification | None
     search_results: list[str] | None 
     response: str | None
+    suggestions: list[str] | None
+    emergency_contacts: list[dict[str, str]] | None
     booking_initiated: bool  # NEW: Flag to trigger frontend booking UI
     messages: Annotated[list[AnyMessage], add_messages]
     
@@ -192,6 +211,10 @@ async def read_request(state: MentalHealthAgentState) -> dict:
     message = state["user_message"]
     updates: dict[str, Any] = {
         "messages": [HumanMessage(content=message)],
+        "booking_cancelled": False,
+        "assessment_offered": False,
+        "suggestions": None,
+        "emergency_contacts": None,
     }
 
     # Corrections must be applied before intent classification. Otherwise an age
@@ -201,6 +224,28 @@ async def read_request(state: MentalHealthAgentState) -> dict:
 
 async def classify_intent(state: MentalHealthAgentState) -> Command[Literal["search_website_info", "collect_booking_info", "respond"]]:
     """Uses LLM to classify request intent and urgency."""
+    if declines_booking(state["user_message"]):
+        classification: RequestClassification = {
+            "intent": "conversational",
+            "urgency": "critical" if _safety_status(state["user_message"]) == "unsafe" else "stable",
+            "summary_request": "The user explicitly declined or cancelled booking.",
+        }
+        return Command(
+            update={**reset_booking_state(), "classification": classification, "booking_cancelled": True},
+            goto="respond",
+        )
+
+    if contains_crisis_signal(state["user_message"]):
+        classification = {
+            "intent": "urgent_help",
+            "urgency": "critical",
+            "summary_request": "The user expressed an explicit immediate-safety concern.",
+        }
+        return Command(
+            update={"classification": classification, "booking_initiated": False},
+            goto="respond",
+        )
+
     if state.get("correction_detected"):
         classification: RequestClassification = {
             "intent": "booking",
@@ -209,6 +254,17 @@ async def classify_intent(state: MentalHealthAgentState) -> Command[Literal["sea
         }
         return Command(update={"classification": classification}, goto="collect_booking_info")
 
+    if requests_assessment(state["user_message"]):
+        classification = {
+            "intent": "assessment",
+            "urgency": "stable",
+            "summary_request": "The user asked to complete a mental health screening form.",
+        }
+        return Command(
+            update={"classification": classification, "assessment_offered": True},
+            goto="respond",
+        )
+
     if is_gratitude(state["user_message"]):
         classification = {
             "intent": "conversational",
@@ -216,7 +272,11 @@ async def classify_intent(state: MentalHealthAgentState) -> Command[Literal["sea
             "summary_request": "The user is closing the conversation with thanks.",
         }
         return Command(
-            update={"classification": classification, "booking_initiated": False},
+            update={
+                "classification": classification,
+                "booking_initiated": False,
+                "booking_ready_for_calendar": False,
+            },
             goto="respond",
         )
 
@@ -225,8 +285,11 @@ async def classify_intent(state: MentalHealthAgentState) -> Command[Literal["sea
     classification_prompt = f"""
     You are an expert mental health support agent.
     Your job is to analyze this request and classify it by intent and urgency.
-    intent can be one of: inquiry, booking, urgent_help, conversational.
-    request for rescheduling are not conversational but rather a booking intent.
+    intent can be one of: inquiry, booking, assessment, urgent_help, conversational.
+    Use booking only when the user explicitly asks to schedule, reschedule, or begin
+    arranging an appointment. Questions about therapy, clinicians, visit length,
+    cost, eligibility, or what to expect are inquiry intent, not booking.
+    Use assessment only when the user asks for a PHQ, screening, questionnaire, or assessment form.
     urgency can be one of: stable, critical.
     conversational intent is for friendly, empathetic small talk only and general emotional support you can use it to suggest coping strategies for down moods or for dealing with interpersonal relationships that do not indicate self harm and conversations.
     Please pay special attention to requests indicating immediate danger, suicide ideation, or self-harm, or a depressive mode and tone.
@@ -246,12 +309,25 @@ async def classify_intent(state: MentalHealthAgentState) -> Command[Literal["sea
         goto = "search_website_info" 
     elif classification_dict['intent'] == 'booking':
         goto = "collect_booking_info"
+    elif classification_dict['intent'] == 'assessment':
+        goto = "respond"
     elif classification_dict['intent'] == 'conversational':
         goto = "respond"
     
     updates: dict[str, Any] = {"classification": classification}
+    if classification_dict["intent"] == "assessment":
+        updates["assessment_offered"] = True
     if classification_dict["intent"] == "booking":
-        updates.update({"booking_initiated": False, "booking_completed": False})
+        if state.get("booking_completed"):
+            updates.update(reset_booking_state())
+        updates.update(
+            {
+                "booking_initiated": False,
+                "booking_ready_for_calendar": False,
+                "booking_completed": False,
+                "booking_cancelled": False,
+            }
+        )
 
     return Command(
         update=updates,
@@ -305,9 +381,12 @@ async def _extract_booking_intake_facts(message: str) -> BookingIntakeFacts:
 def _crisis_response() -> str:
     support_line = f" You can also contact {CRISIS_SUPPORT_LINE}." if CRISIS_SUPPORT_LINE else ""
     return (
-        "I'm sorry you're feeling unsafe. Please contact local emergency services now, "
-        "or go to the nearest emergency department. If you can, tell a parent, guardian, "
-        f"or another trusted adult and stay with someone.{support_line}"
+        f"I'm sorry you're feeling unsafe. If you may act on these thoughts, call {EMERGENCY_PHONE} "
+        f"now or go to the nearest emergency department. Call or text {CRISIS_LIFELINE_PHONE} "
+        f"for the Suicide & Crisis Lifeline. Corner Health's after-hours psychiatric number is "
+        f"{PSYCHIATRIC_EMERGENCY_PHONE}. Tell a parent, guardian, or another trusted adult and "
+        f"stay with someone. After your immediate safety is addressed, Corner Health can be "
+        f"reached at {CLINIC_PHONE}.{support_line}"
     )
 
 
@@ -319,6 +398,13 @@ def _contact_state_updates(payload: Any) -> dict[str, Any]:
 async def collect_booking_info(state: MentalHealthAgentState) -> Command[Literal["respond", "collect_booking_info"]]:
     """Collect patient information for booking (self-loop pattern)."""
     print("Collecting booking info node executing...")
+
+    # Clinician preference comes before age, intake, or contact information.
+    if not state.get("selected_doctor_id"):
+        return Command(
+            update={"booking_initiated": True, "booking_ready_for_calendar": False},
+            goto="respond",
+        )
 
     # Extract facts already volunteered in the initial booking request once.
     if not state.get("booking_intake_extracted"):
@@ -435,9 +521,13 @@ async def collect_booking_info(state: MentalHealthAgentState) -> Command[Literal
             goto="collect_booking_info"
         )
 
-    # All info collected - signal frontend to show doctor selection
+    # All info collected - signal the frontend to continue with the selected calendar.
     return Command(
-        update={'eligibility_status': "eligible", 'booking_initiated': True},
+        update={
+            'eligibility_status': "eligible",
+            'booking_initiated': False,
+            'booking_ready_for_calendar': True,
+        },
         goto="respond"
     )
 
@@ -460,6 +550,100 @@ async def respond(state: MentalHealthAgentState) -> dict:
             "messages": [AIMessage(content=_crisis_response())],
             "response": _crisis_response(),
             "booking_initiated": False,
+            "emergency_contacts": [
+                {"label": "Emergency services", "phone": EMERGENCY_PHONE},
+                {"label": "Suicide & Crisis Lifeline (call or text)", "phone": CRISIS_LIFELINE_PHONE},
+                {"label": "Corner Health after-hours psychiatric care", "phone": PSYCHIATRIC_EMERGENCY_PHONE},
+                {"label": "Corner Health clinic (non-emergency)", "phone": CLINIC_PHONE},
+            ],
+        }
+
+    if state.get("booking_cancelled"):
+        text = (
+            "That's completely fine. We do not have to book anything. "
+            "We can keep talking, or I can help with questions about support and services."
+        )
+        return {
+            "messages": [AIMessage(content=text)],
+            "response": text,
+            "booking_initiated": False,
+            "booking_ready_for_calendar": False,
+            "booking_cancelled": True,
+        }
+
+    if requests_stress_relief(state["user_message"]):
+        text = (
+            "Let's try a short reset together. Put both feet on the floor if that feels comfortable, "
+            "let your shoulders drop, and breathe normally while making each exhale a little longer. "
+            "Then name three things you can see, two things you can feel, and one thing you can hear. "
+            "You can stop if any part feels uncomfortable.\n\n"
+            "How do you feel after trying that: the same, a little calmer, or more uncomfortable?"
+        )
+        return {
+            "messages": [AIMessage(content=text)],
+            "response": text,
+            "booking_initiated": False,
+            "suggestions": ["A little calmer", "About the same", "I want to talk instead"],
+        }
+
+    if invites_supportive_conversation(state["user_message"]):
+        text = (
+            "Yes, you can talk to me. I'm not a therapist or an emergency service, but I can listen, "
+            "help you put words to what you're feeling, and think through a small next step with you. "
+            "We do not have to talk about booking.\n\n"
+            "What's been going on? If that feels hard to answer, you can start with the part of today "
+            "that felt heaviest."
+        )
+        return {
+            "messages": [AIMessage(content=text)],
+            "response": text,
+            "booking_initiated": False,
+            "suggestions": ["I want to talk about what happened", "Give me a quick stress-relief exercise"],
+        }
+
+    if expresses_low_mood(state["user_message"]):
+        text = (
+            "I'm sorry things feel heavy right now. I can stay with you and listen; you do not have "
+            "to solve everything or decide about therapy this minute.\n\n"
+            "Would you rather tell me what has been weighing on you, or try a quick reset first?"
+        )
+        return {
+            "messages": [AIMessage(content=text)],
+            "response": text,
+            "booking_initiated": False,
+            "suggestions": ["I want to talk about it", "Give me a quick stress-relief exercise"],
+        }
+
+    if asks_about_therapy_process(state["user_message"]):
+        text = (
+            "Corner Health offers counseling and psychiatry for young people ages "
+            f"{MIN_ELIGIBLE_AGE} to {MAX_ELIGIBLE_AGE}. Counselors can meet with you regularly "
+            "to talk through what you are experiencing, while psychiatry can provide medication "
+            "evaluation when appropriate. The mental health team helps determine the right next "
+            f"step. You can also call or text the clinic at {CLINIC_PHONE}.\n\n"
+            "Would you like me to help you explore booking with an available clinician, or would "
+            "you prefer to learn more about what a first session may be like?"
+        )
+        return {
+            "messages": [AIMessage(content=text)],
+            "response": text,
+            "booking_initiated": False,
+            "suggestions": [
+                "Help me book an appointment",
+                "What happens in a first therapy session?",
+            ],
+        }
+
+    if classification.get("intent") == "assessment" or state.get("assessment_offered"):
+        text = (
+            "You can complete a separate mental health check-in without starting a booking. "
+            "It is a screening form, not a diagnosis, and it includes immediate safety guidance when needed."
+        )
+        return {
+            "messages": [AIMessage(content=text)],
+            "response": text,
+            "booking_initiated": False,
+            "assessment_offered": True,
         }
 
     closing_text = closing_response(
@@ -482,14 +666,26 @@ async def respond(state: MentalHealthAgentState) -> dict:
         return {"messages": [AIMessage(content=text)], "response": text, "booking_initiated": False}
 
     if classification.get("intent") == "booking" and state.get("booking_initiated"):
-        text = "Thanks. Your intake information is ready. Choose an available doctor and time below."
+        text = "I can help you explore an appointment. First, choose an available Corner Health clinician. I won't ask for your personal details until after you choose."
         return {"messages": [AIMessage(content=text)], "response": text, "booking_initiated": True}
+
+    if classification.get("intent") == "booking" and state.get("booking_ready_for_calendar"):
+        clinician = state.get("selected_doctor_name") or "your selected clinician"
+        text = f"Thanks. Your intake information is ready. Choose an available time with {clinician}."
+        return {
+            "messages": [AIMessage(content=text)],
+            "response": text,
+            "booking_initiated": False,
+            "booking_ready_for_calendar": True,
+        }
     
     history_str = "\n".join([f"{msg.type.capitalize()}: {msg.content}" for msg in state.get("messages", [])])
 
     prompt = f"""
     You are a mental health support chatbot named CeCe for a nonprofit youth health organization, Corner Health.
-    Your purpose is to respond gently, clearly, and safely. You do NOT give
+    Your primary purpose is to answer questions and help users understand Corner
+    Health's services in a natural conversation. Respond directly to what the user
+    asked before suggesting any next step. You do NOT give
     medical advice or instructions. You only provide emotional support,
     general information about services, and guidance on how to reach human help.
 
@@ -514,20 +710,30 @@ async def respond(state: MentalHealthAgentState) -> dict:
         - Encourage them to contact the clinic directly for guidance or alternate resources.
         - Keep the tone respectful and brief.
 
-    2. If intent == "booking" and booking_initiated == True:
-        - Inform the user that you've gathered their information
-        - Tell them they'll now see available doctors to choose from
-        - Keep the tone supportive and simple
-        - Don't ask for more information as booking is handled by the calendar UI
+    2. Never suggest or restart booking unless the current message explicitly asks
+       to schedule or continue an appointment. If the user declines booking, stop.
 
     3. If intent == "inquiry":
         - Use RAG search results to give safe, non-clinical information about services.
         - Do not describe mental health conditions.
-        - Keep answers short and clear.
+        - Answer the specific question first, including what services are offered,
+          how intake works, visit expectations, and how to reach the clinic.
+        - Keep answers short and clear. Do not force a booking call to action.
 
     4. If intent == "conversational":
-        - Give friendly and empathetic small talk.
-        - Redirect gently toward available services when appropriate.
+        - Respond to the specific situation the user described; do not use a
+          generic acknowledgement that could apply to any message.
+        - Reflect one concrete detail and ask at most one useful follow-up question.
+        - Offer low-risk emotional support or a simple coping option only when it
+          fits the request. Do not diagnose or imply that you are a therapist.
+        - Mention services only when relevant. Do not turn support into booking.
+        - Listen first. Validate the specific feeling without claiming to understand
+          exactly what the user is experiencing.
+        - It is acceptable to engage in gentle small talk, ask what happened, and
+          offer simple grounding, breathing, journaling, or trusted-person options.
+        - Do not say you are unable to converse, listen, offer company, or help the
+          user feel a little better. Be honest that you are not a therapist while
+          still being present and useful.
 
     -------------------------
     ### RESPONSE STYLE RULES
@@ -536,6 +742,9 @@ async def respond(state: MentalHealthAgentState) -> dict:
     - Short paragraphs. Clear sentences.
     - No judgmental wording.
     - Use the user's first name when available.
+    - Do not repeat the same stock response across unrelated questions.
+    - Do not repeat the clinic phone number or redirect to booking unless the user
+      asks about services, wants human support, or a safety concern requires it.
 
     -------------------------
     ### INFORMATION YOU MAY USE
@@ -575,7 +784,10 @@ async def respond(state: MentalHealthAgentState) -> dict:
     return {
         "messages": [AIMessage(content=final_text)],
         "response": final_text,
-        "booking_initiated": state.get('booking_initiated', False)
+        "booking_initiated": state.get('booking_initiated', False),
+        "booking_ready_for_calendar": state.get('booking_ready_for_calendar', False),
+        "booking_cancelled": False,
+        "assessment_offered": state.get('assessment_offered', False),
     }
     
 # --- GRAPH COMPILATION (Async Context) ---

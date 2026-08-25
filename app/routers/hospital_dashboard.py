@@ -4,10 +4,17 @@ from app.auth.middleware import require_hospital_auth
 from app.services.firebase_service import firebase_service
 from app.services.doctor_service import doctor_service
 from datetime import datetime, timedelta
+from pydantic import BaseModel
 import os
 
 
 router = APIRouter(prefix="/hospital", tags=["hospital-dashboard"])
+
+
+class DoctorBookingSettings(BaseModel):
+    published_on_website: bool
+    accepting_online_bookings: bool
+    is_demo: bool = False
 
 
 @router.get("/dashboard", response_class=HTMLResponse)
@@ -86,6 +93,29 @@ async def get_hospital_doctors(hospital_id: str = Depends(require_hospital_auth)
     """Get all doctors in hospital"""
     doctors = await doctor_service.list_hospital_doctors(hospital_id)
     return {"doctors": doctors}
+
+
+@router.patch("/api/doctors/{doctor_id}/booking-settings")
+async def update_doctor_booking_settings(
+    doctor_id: str,
+    settings: DoctorBookingSettings,
+    hospital_id: str = Depends(require_hospital_auth),
+):
+    """Control whether one hospital clinician appears in public booking."""
+    doctor = await firebase_service.get_doctor(doctor_id)
+    if not doctor or doctor.get("hospital_id") != hospital_id:
+        raise HTTPException(status_code=404, detail="Doctor not found in this hospital")
+
+    updates = settings.model_dump()
+    saved = await firebase_service.save_doctor_credentials(doctor_id, updates)
+    if not saved:
+        raise HTTPException(status_code=500, detail="Could not update booking settings")
+
+    doctor.update(updates)
+    return {
+        "success": True,
+        "doctor": doctor_service._safe_doctor(doctor),
+    }
 
 
 

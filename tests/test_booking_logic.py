@@ -2,11 +2,19 @@ import unittest
 
 from app.agent.booking_logic import (
     apply_message_corrections,
+    asks_about_therapy_process,
     closing_response,
+    contains_crisis_signal,
+    declines_booking,
     extract_age_from_message,
+    expresses_low_mood,
+    invites_supportive_conversation,
     is_gratitude,
     normalize_contact_details,
+    requests_assessment,
     requests_booking,
+    requests_stress_relief,
+    reset_booking_state,
     safety_status,
 )
 
@@ -49,11 +57,57 @@ class BookingLogicTests(unittest.TestCase):
 
     def test_unsafe_language_is_detected(self):
         self.assertEqual(safety_status("No, I do not feel safe"), "unsafe")
+        self.assertEqual(safety_status("I have thoughts of hurting myself"), "unsafe")
+        self.assertEqual(safety_status("I want to die"), "unsafe")
         self.assertEqual(safety_status("I am safe"), "safe")
+        self.assertTrue(contains_crisis_signal("I have thoughts of hurting myself"))
+        self.assertFalse(contains_crisis_signal("No"))
 
     def test_combined_unsafe_booking_message_retains_booking_intent(self):
         self.assertTrue(requests_booking("I do not feel safe and need to book an appointment"))
         self.assertFalse(requests_booking("I do not feel safe right now"))
+
+    def test_booking_decline_is_explicit_and_does_not_match_information_questions(self):
+        self.assertTrue(declines_booking("I don't want to book"))
+        self.assertTrue(declines_booking("Please cancel the booking"))
+        self.assertTrue(declines_booking("not booking"))
+        self.assertTrue(declines_booking("I'm not booking"))
+        self.assertTrue(declines_booking("I'm not interested in seeing a doctor"))
+        self.assertTrue(declines_booking("I don't need an appointment"))
+        self.assertFalse(declines_booking("How do I book?"))
+
+    def test_booking_requires_affirmative_action(self):
+        self.assertTrue(requests_booking("I want to book an appointment"))
+        self.assertTrue(requests_booking("Can you help me schedule a session?"))
+        self.assertTrue(requests_booking("I need to see a therapist"))
+        self.assertFalse(requests_booking("not booking"))
+        self.assertFalse(requests_booking("I'm not interested in seeing a doctor"))
+        self.assertFalse(requests_booking("I don't need an appointment"))
+        self.assertFalse(requests_booking("What appointments are available?"))
+
+    def test_assessment_requests_are_detected_without_treating_support_as_assessment(self):
+        self.assertTrue(requests_assessment("Can I complete the PHQ-9?"))
+        self.assertTrue(requests_assessment("I want a mental health check-in"))
+        self.assertFalse(requests_assessment("I have been feeling low"))
+
+    def test_therapy_process_question_is_not_automatically_a_booking(self):
+        message = "If I wanted to get therapy, how does that work?"
+        self.assertTrue(asks_about_therapy_process(message))
+        self.assertTrue(asks_about_therapy_process("If I wanted theraoth, how does that work?"))
+        self.assertFalse(requests_booking(message))
+
+    def test_supportive_conversation_requests_are_detected(self):
+        self.assertTrue(expresses_low_mood("im sad what do i do"))
+        self.assertTrue(invites_supportive_conversation("can i talk to u instead"))
+        self.assertTrue(invites_supportive_conversation("so you cant cheer me up"))
+        self.assertTrue(requests_stress_relief("give me stress releif tips"))
+
+    def test_booking_reset_clears_selection_and_sensitive_intake(self):
+        updates = reset_booking_state()
+        self.assertIsNone(updates["selected_doctor_id"])
+        self.assertIsNone(updates["user_email"])
+        self.assertFalse(updates["booking_initiated"])
+        self.assertFalse(updates["booking_ready_for_calendar"])
 
     def test_contact_form_is_normalized(self):
         details = normalize_contact_details(

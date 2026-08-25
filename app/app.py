@@ -18,6 +18,7 @@ from app.auth.auth_routes import router as auth_router  # Migrated to unified au
 from app.auth.signup_routes import router as signup_router
 from app.routers.doctor_dashboard import router as doctor_router
 from app.routers.hospital_dashboard import router as hospital_router
+from app.routers.assessment import router as assessment_router
 
 # Import agent
 from app.agent.agent_core import get_agent_app
@@ -85,6 +86,7 @@ app.include_router(auth_router)
 app.include_router(signup_router)
 app.include_router(doctor_router)
 app.include_router(hospital_router)
+app.include_router(assessment_router)
 
 
 #==================UTILITY FUCTIONS ===================
@@ -177,6 +179,15 @@ async def root():
             status_code=200
         )
 
+@app.get("/assessment", response_class=HTMLResponse)
+async def assessment_page():
+    """Serve the standalone mental health screening experience."""
+    return FileResponse(
+        static_files_dir / "assessment.html",
+        headers={"Cache-Control": "no-store"},
+    )
+
+
 @app.get("/health")
 async def health_check():
     """Health check endpoint"""
@@ -214,6 +225,44 @@ async def websocket_chat(websocket: WebSocket):
             # Receive message from client
             data = await websocket.receive_text()
             client_message = json.loads(data)
+
+            # Cancellation must work even while LangGraph is paused at an
+            # interrupt. A clean thread prevents an abandoned form from
+            # consuming a later conversational message as booking data.
+            if client_message.get("type") == "cancel_booking":
+                session_id = str(uuid4())
+                config = {"configurable": {"thread_id": session_id}}
+                is_conversation_started = False
+                await websocket.send_json({"type": "session_id", "id": session_id})
+                await websocket.send_json({
+                    "type": "response",
+                    "text": "No problem. I won't continue with booking. What would you like help with instead?",
+                    "booking_cancelled": True,
+                })
+                continue
+
+            # A clinician is selected before any personal intake information.
+            if client_message.get("type") == "select_doctor":
+                hospital_id = client_message.get("hospital_id") or DEFAULT_HOSPITAL_ID
+                doctor_id = str(client_message.get("doctor_id") or "")
+                available_doctors = await doctor_service.list_bookable_doctors(hospital_id)
+                selected = next((doctor for doctor in available_doctors if doctor["id"] == doctor_id), None)
+                if not selected:
+                    await websocket.send_json({
+                        "type": "error",
+                        "message": "That clinician is not currently available for online booking.",
+                    })
+                    continue
+                await agent_instance.aupdate_state(config, {
+                    "hospital_id": hospital_id,
+                    "selected_doctor_id": selected["id"],
+                    "selected_doctor_name": selected["name"],
+                    "booking_initiated": False,
+                })
+                client_message = {
+                    "query": f"Continue booking with {selected['name']}",
+                    "hospital_id": hospital_id,
+                }
             
             # ==================== HANDLE BOOKING CONFIRMATION ====================
             if client_message.get("type") == "confirm_booking":
@@ -223,6 +272,8 @@ async def websocket_chat(websocket: WebSocket):
                     # Get the conversation state to extract full chat history
                     state_snapshot = await agent_instance.aget_state(config)
                     state_values = state_snapshot.values
+                    if booking_data.get("doctor_id") != state_values.get("selected_doctor_id"):
+                        raise ValueError("Selected clinician does not match the booking session")
                     booking_data["patient_name"] = (
                         f"{state_values.get('user_Fname', '')} {state_values.get('user_Lname', '')}"
                     ).strip()
@@ -321,6 +372,9 @@ async def websocket_chat(websocket: WebSocket):
                 duration = client_message.get("duration_minutes", 30)
                 
                 try:
+                    state_snapshot = await agent_instance.aget_state(config)
+                    if doctor_id != state_snapshot.values.get("selected_doctor_id"):
+                        raise ValueError("Select this clinician before requesting availability")
                     # Parse the date
                     date = datetime.fromisoformat(date_str)
                     
@@ -417,7 +471,9 @@ async def websocket_chat(websocket: WebSocket):
                         # Send response first
                         await websocket.send_json({
                             "type": "response",
-                            "text": response_data.get('response', '')
+                            "text": response_data.get('response', ''),
+                            "suggestions": response_data.get("suggestions", []),
+                            "emergency_contacts": response_data.get("emergency_contacts", []),
                         })
                         
                         # Then trigger doctor selection UI on frontend with patient info
@@ -436,11 +492,46 @@ async def websocket_chat(websocket: WebSocket):
                             config,
                             {"booking_initiated": False},
                         )
+                    elif response_data.get("booking_ready_for_calendar"):
+                        await websocket.send_json({
+                            "type": "response",
+                            "text": response_data.get("response", ""),
+                        })
+                        await websocket.send_json({"type": "show_calendar"})
+                        await agent_instance.aupdate_state(
+                            config,
+                            {"booking_ready_for_calendar": False},
+                        )
+                    elif response_data.get("assessment_offered"):
+                        await websocket.send_json({
+                            "type": "response",
+                            "text": response_data.get("response", ""),
+                        })
+                        await websocket.send_json({
+                            "type": "show_assessment",
+                            "url": "/assessment",
+                        })
+                        await agent_instance.aupdate_state(
+                            config,
+                            {"assessment_offered": False},
+                        )
+                    elif response_data.get("booking_cancelled"):
+                        await websocket.send_json({
+                            "type": "response",
+                            "text": response_data.get("response", ""),
+                            "booking_cancelled": True,
+                        })
+                        await agent_instance.aupdate_state(
+                            config,
+                            {"booking_cancelled": False},
+                        )
                     else:
                         # Normal response
                         await websocket.send_json({
                             "type": "response",
-                            "text": response_data.get('response', '')
+                            "text": response_data.get('response', ''),
+                            "suggestions": response_data.get("suggestions", []),
+                            "emergency_contacts": response_data.get("emergency_contacts", []),
                         })
                 
                 if node_name == "__end__":

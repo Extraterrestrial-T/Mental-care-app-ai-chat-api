@@ -1,72 +1,51 @@
-<mxfile host="app.diagrams.net" modified="2026-08-24T00:00:00.000Z" agent="Codex" version="24.7.17" compressed="false">
-  <diagram id="current-chat-agent" name="Current Chat Agent">
-    <mxGraphModel dx="1200" dy="1600" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="1654" math="0" shadow="0">
+<mxfile host="app.diagrams.net" modified="2026-08-25T00:00:00.000Z" agent="Codex" version="24.7.17" compressed="false">
+  <diagram id="care-flow-v2" name="Current Agent Flow">
+    <mxGraphModel dx="1200" dy="1500" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1169" pageHeight="1654" math="0" shadow="0">
       <root>
-        <mxCell id="0" />
-        <mxCell id="1" parent="0" />
-        <mxCell id="title" value="Current Chat Agent Workflow" style="text;html=1;align=center;verticalAlign=middle;fontSize=22;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="300" y="20" width="520" height="40" as="geometry" /></mxCell>
-        <mxCell id="subtitle" value="Deterministic LangGraph flow with booking, safety, and correction handling" style="text;html=1;align=center;verticalAlign=middle;fontSize=12;fontColor=#666666;" vertex="1" parent="1"><mxGeometry x="300" y="60" width="520" height="30" as="geometry" /></mxCell>
+        <mxCell id="0"/><mxCell id="1" parent="0"/>
+        <mxCell id="title" value="CareCoordinator: Conversational-First Agent" style="text;html=1;align=center;fontSize=24;fontStyle=1" vertex="1" parent="1"><mxGeometry x="320" y="20" width="520" height="40" as="geometry"/></mxCell>
+        <mxCell id="user" value="User message" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1" vertex="1" parent="1"><mxGeometry x="475" y="90" width="220" height="60" as="geometry"/></mxCell>
+        <mxCell id="route" value="Safety + explicit intent routing" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontStyle=1" vertex="1" parent="1"><mxGeometry x="465" y="190" width="240" height="100" as="geometry"/></mxCell>
 
-        <mxCell id="user" value="User message" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="435" y="110" width="250" height="55" as="geometry" /></mxCell>
-        <mxCell id="read" value="Read message and apply explicit corrections" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1"><mxGeometry x="400" y="200" width="320" height="60" as="geometry" /></mxCell>
-        <mxCell id="thanks" value="Short closing thanks?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1"><mxGeometry x="450" y="300" width="220" height="85" as="geometry" /></mxCell>
-        <mxCell id="final" value="Final acknowledgement" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1"><mxGeometry x="780" y="315" width="220" height="55" as="geometry" /></mxCell>
-        <mxCell id="intent" value="Intent and urgency classification" style="rhombus;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="425" y="430" width="270" height="100" as="geometry" /></mxCell>
+        <mxCell id="crisis" value="Immediate safety guidance&#xa;Human help now" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450" vertex="1" parent="1"><mxGeometry x="30" y="350" width="220" height="70" as="geometry"/></mxCell>
+        <mxCell id="conversation" value="Conversation / clinic question" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1" vertex="1" parent="1"><mxGeometry x="280" y="350" width="220" height="70" as="geometry"/></mxCell>
+        <mxCell id="answer" value="RAG clinic answer or&#xa;supportive response" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366" vertex="1" parent="1"><mxGeometry x="280" y="470" width="220" height="70" as="geometry"/></mxCell>
 
-        <mxCell id="rag" value="Clinic inquiry&#xa;RAG website search and answer" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1"><mxGeometry x="40" y="570" width="235" height="70" as="geometry" /></mxCell>
-        <mxCell id="support" value="Conversation&#xa;Supportive non-clinical response" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1"><mxGeometry x="40" y="685" width="235" height="70" as="geometry" /></mxCell>
-        <mxCell id="urgent" value="Critical without booking&#xa;Urgent safety guidance" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1"><mxGeometry x="845" y="570" width="235" height="70" as="geometry" /></mxCell>
+        <mxCell id="assessment" value="Assessment requested" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontStyle=1" vertex="1" parent="1"><mxGeometry x="540" y="350" width="220" height="70" as="geometry"/></mxCell>
+        <mxCell id="phq" value="Separate check-in page&#xa;PHQ-A (12-17) / PHQ-9 (18-25)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6" vertex="1" parent="1"><mxGeometry x="540" y="470" width="220" height="80" as="geometry"/></mxCell>
+        <mxCell id="item9" value="Item 9 positive?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656" vertex="1" parent="1"><mxGeometry x="565" y="590" width="170" height="90" as="geometry"/></mxCell>
+        <mxCell id="asq" value="Required ASQ safety follow-up" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450" vertex="1" parent="1"><mxGeometry x="520" y="720" width="260" height="60" as="geometry"/></mxCell>
+        <mxCell id="store" value="Consent + contact&#xa;Versioned staff-review record" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6" vertex="1" parent="1"><mxGeometry x="540" y="830" width="220" height="70" as="geometry"/></mxCell>
 
-        <mxCell id="facts" value="Booking&#xa;Extract volunteered intake facts" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1"><mxGeometry x="425" y="580" width="270" height="70" as="geometry" /></mxCell>
-        <mxCell id="age" value="Age eligible?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1"><mxGeometry x="460" y="700" width="200" height="85" as="geometry" /></mxCell>
-        <mxCell id="askAge" value="Ask age" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1"><mxGeometry x="165" y="715" width="170" height="55" as="geometry" /></mxCell>
-        <mxCell id="ineligible" value="Explain eligibility&#xa;Allow corrected age" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1"><mxGeometry x="800" y="710" width="220" height="65" as="geometry" /></mxCell>
-        <mxCell id="safety" value="Feels safe now?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1"><mxGeometry x="460" y="835" width="200" height="85" as="geometry" /></mxCell>
-        <mxCell id="askSafety" value="Ask safety question" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1"><mxGeometry x="165" y="850" width="180" height="55" as="geometry" /></mxCell>
-        <mxCell id="unsafe" value="Urgent guidance and acknowledgement" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;" vertex="1" parent="1"><mxGeometry x="770" y="845" width="260" height="65" as="geometry" /></mxCell>
-        <mxCell id="continue" value="Continue booking?" style="rhombus;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1"><mxGeometry x="800" y="950" width="200" height="80" as="geometry" /></mxCell>
+        <mxCell id="booking" value="Explicit booking request" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1" vertex="1" parent="1"><mxGeometry x="810" y="350" width="220" height="70" as="geometry"/></mxCell>
+        <mxCell id="clinician" value="Choose approved, connected clinician" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf" vertex="1" parent="1"><mxGeometry x="810" y="470" width="220" height="70" as="geometry"/></mxCell>
+        <mxCell id="intake" value="Age + safety + intake&#xa;One contact form" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf" vertex="1" parent="1"><mxGeometry x="810" y="590" width="220" height="70" as="geometry"/></mxCell>
+        <mxCell id="calendar" value="Selected clinician calendar&#xa;Confirm appointment" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf" vertex="1" parent="1"><mxGeometry x="810" y="710" width="220" height="70" as="geometry"/></mxCell>
+        <mxCell id="cancel" value="Stop booking at any point&#xa;Clear paused booking state" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450" vertex="1" parent="1"><mxGeometry x="810" y="830" width="220" height="70" as="geometry"/></mxCell>
 
-        <mxCell id="intake" value="Collect only missing intake answers" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1"><mxGeometry x="425" y="980" width="270" height="60" as="geometry" /></mxCell>
-        <mxCell id="contact" value="One validated contact-details form" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;" vertex="1" parent="1"><mxGeometry x="425" y="1080" width="270" height="60" as="geometry" /></mxCell>
-        <mxCell id="bookingUi" value="Emit booking UI once" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1"><mxGeometry x="425" y="1180" width="270" height="60" as="geometry" /></mxCell>
-        <mxCell id="calendar" value="Show connected doctors, dates, and live slots" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;" vertex="1" parent="1"><mxGeometry x="400" y="1280" width="320" height="60" as="geometry" /></mxCell>
-        <mxCell id="create" value="Confirm and create appointment" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;" vertex="1" parent="1"><mxGeometry x="425" y="1380" width="270" height="60" as="geometry" /></mxCell>
-        <mxCell id="complete" value="Mark booking completed" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="425" y="1480" width="270" height="60" as="geometry" /></mxCell>
-        <mxCell id="end" value="End / wait for next message" style="ellipse;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontStyle=1;" vertex="1" parent="1"><mxGeometry x="425" y="1580" width="270" height="60" as="geometry" /></mxCell>
+        <mxCell id="wait" value="End / wait for next message" style="ellipse;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontStyle=1" vertex="1" parent="1"><mxGeometry x="380" y="1020" width="410" height="60" as="geometry"/></mxCell>
+        <mxCell id="timer" value="Independent calendar health timer&#xa;refreshes provider connection status" style="rounded=1;whiteSpace=wrap;html=1;dashed=1;fillColor=#f5f5f5;strokeColor=#666666" vertex="1" parent="1"><mxGeometry x="810" y="1020" width="260" height="60" as="geometry"/></mxCell>
 
-        <mxCell id="timerNote" value="Separate maintenance workflow&#xa;Systemd timer verifies calendar connections every ~15 minutes" style="shape=note;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1"><mxGeometry x="770" y="1190" width="300" height="90" as="geometry" /></mxCell>
-
-        <mxCell id="e1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" edge="1" parent="1" source="user" target="read"><mxGeometry relative="1" as="geometry" /></mxCell>
-        <mxCell id="e2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;endArrow=block;" edge="1" parent="1" source="read" target="thanks"><mxGeometry relative="1" as="geometry" /></mxCell>
-        <mxCell id="e3" value="yes" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;" edge="1" parent="1" source="thanks" target="final"><mxGeometry relative="1" as="geometry" /></mxCell>
-        <mxCell id="e4" value="no" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;" edge="1" parent="1" source="thanks" target="intent"><mxGeometry relative="1" as="geometry" /></mxCell>
-        <mxCell id="e5" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;" edge="1" parent="1" source="final" target="end"><mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="1100" y="343" /><mxPoint x="1100" y="1610" /></Array></mxGeometry></mxCell>
-        <mxCell id="e6" value="inquiry" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;" edge="1" parent="1" source="intent" target="rag"><mxGeometry relative="1" as="geometry" /></mxCell>
-        <mxCell id="e7" value="conversation" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;" edge="1" parent="1" source="intent" target="support"><mxGeometry relative="1" as="geometry" /></mxCell>
-        <mxCell id="e8" value="critical" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;" edge="1" parent="1" source="intent" target="urgent"><mxGeometry relative="1" as="geometry" /></mxCell>
-        <mxCell id="e9" value="booking" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;" edge="1" parent="1" source="intent" target="facts"><mxGeometry relative="1" as="geometry" /></mxCell>
-        <mxCell id="e10" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;" edge="1" parent="1" source="facts" target="age"><mxGeometry relative="1" as="geometry" /></mxCell>
-        <mxCell id="e11" value="missing" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;" edge="1" parent="1" source="age" target="askAge"><mxGeometry relative="1" as="geometry" /></mxCell>
-        <mxCell id="e12" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;" edge="1" parent="1" source="askAge" target="age"><mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="250" y="680" /><mxPoint x="560" y="680" /></Array></mxGeometry></mxCell>
-        <mxCell id="e13" value="no" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;" edge="1" parent="1" source="age" target="ineligible"><mxGeometry relative="1" as="geometry" /></mxCell>
-        <mxCell id="e14" value="yes" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;" edge="1" parent="1" source="age" target="safety"><mxGeometry relative="1" as="geometry" /></mxCell>
-        <mxCell id="e15" value="missing" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;" edge="1" parent="1" source="safety" target="askSafety"><mxGeometry relative="1" as="geometry" /></mxCell>
-        <mxCell id="e16" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;" edge="1" parent="1" source="askSafety" target="safety"><mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="255" y="815" /><mxPoint x="560" y="815" /></Array></mxGeometry></mxCell>
-        <mxCell id="e17" value="no" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;" edge="1" parent="1" source="safety" target="unsafe"><mxGeometry relative="1" as="geometry" /></mxCell>
-        <mxCell id="e18" value="yes" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;" edge="1" parent="1" source="safety" target="intake"><mxGeometry relative="1" as="geometry" /></mxCell>
-        <mxCell id="e19" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;" edge="1" parent="1" source="unsafe" target="continue"><mxGeometry relative="1" as="geometry" /></mxCell>
-        <mxCell id="e20" value="continue" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;" edge="1" parent="1" source="continue" target="intake"><mxGeometry relative="1" as="geometry" /></mxCell>
-        <mxCell id="e21" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;" edge="1" parent="1" source="intake" target="contact"><mxGeometry relative="1" as="geometry" /></mxCell>
-        <mxCell id="e22" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;" edge="1" parent="1" source="contact" target="bookingUi"><mxGeometry relative="1" as="geometry" /></mxCell>
-        <mxCell id="e23" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;" edge="1" parent="1" source="bookingUi" target="calendar"><mxGeometry relative="1" as="geometry" /></mxCell>
-        <mxCell id="e24" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;" edge="1" parent="1" source="calendar" target="create"><mxGeometry relative="1" as="geometry" /></mxCell>
-        <mxCell id="e25" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;" edge="1" parent="1" source="create" target="complete"><mxGeometry relative="1" as="geometry" /></mxCell>
-        <mxCell id="e26" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;" edge="1" parent="1" source="complete" target="end"><mxGeometry relative="1" as="geometry" /></mxCell>
-        <mxCell id="e27" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;" edge="1" parent="1" source="rag" target="end"><mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="20" y="605" /><mxPoint x="20" y="1610" /></Array></mxGeometry></mxCell>
-        <mxCell id="e28" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;" edge="1" parent="1" source="support" target="end"><mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="20" y="720" /><mxPoint x="20" y="1610" /></Array></mxGeometry></mxCell>
-        <mxCell id="e29" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;" edge="1" parent="1" source="urgent" target="end"><mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="1100" y="605" /><mxPoint x="1100" y="1610" /></Array></mxGeometry></mxCell>
-        <mxCell id="e30" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;" edge="1" parent="1" source="ineligible" target="end"><mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="1100" y="742" /><mxPoint x="1100" y="1610" /></Array></mxGeometry></mxCell>
-        <mxCell id="e31" value="stop" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;" edge="1" parent="1" source="continue" target="end"><mxGeometry relative="1" as="geometry"><Array as="points"><mxPoint x="1100" y="990" /><mxPoint x="1100" y="1610" /></Array></mxGeometry></mxCell>
+        <mxCell id="e1" edge="1" parent="1" source="user" target="route"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e2" value="risk" edge="1" parent="1" source="route" target="crisis"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e3" value="question / support" edge="1" parent="1" source="route" target="conversation"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e4" value="assessment" edge="1" parent="1" source="route" target="assessment"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e5" value="booking" edge="1" parent="1" source="route" target="booking"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e6" edge="1" parent="1" source="conversation" target="answer"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e7" edge="1" parent="1" source="assessment" target="phq"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e8" edge="1" parent="1" source="phq" target="item9"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e9" value="yes" edge="1" parent="1" source="item9" target="asq"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e10" edge="1" parent="1" source="asq" target="store"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e11" value="no" edge="1" parent="1" source="item9" target="store"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e12" edge="1" parent="1" source="booking" target="clinician"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e13" edge="1" parent="1" source="clinician" target="intake"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e14" edge="1" parent="1" source="intake" target="calendar"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e15" edge="1" parent="1" source="crisis" target="wait"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e16" edge="1" parent="1" source="answer" target="wait"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e17" edge="1" parent="1" source="store" target="wait"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e18" edge="1" parent="1" source="calendar" target="wait"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e19" value="decline" edge="1" parent="1" source="booking" target="cancel"><mxGeometry relative="1" as="geometry"/></mxCell>
+        <mxCell id="e20" edge="1" parent="1" source="cancel" target="wait"><mxGeometry relative="1" as="geometry"/></mxCell>
       </root>
     </mxGraphModel>
   </diagram>

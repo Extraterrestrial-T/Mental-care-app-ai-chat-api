@@ -192,6 +192,7 @@
                     </div>
                 </div>
             </div>
+            <a href="/assessment" class="text-sm font-semibold text-indigo-700 hover:text-indigo-900">Check-in form</a>
         </header>
 
         <main id="chat-output" class="flex-grow p-6 space-y-6 bg-white">
@@ -321,6 +322,15 @@
             })[character]);
         }
 
+        function safeImageUrl(value) {
+            try {
+                const parsed = new URL(value, window.location.origin);
+                return parsed.protocol === 'https:' ? parsed.href : '';
+            } catch (_) {
+                return '';
+            }
+        }
+
         function scrollToBottom() { 
             chatOutput.scrollTop = chatOutput.scrollHeight; 
         }
@@ -348,6 +358,73 @@
             scrollToBottom();
         }
 
+        function appendAssessmentAction(url) {
+            document.getElementById('assessment-action')?.remove();
+            const container = document.createElement('div');
+            container.id = 'assessment-action';
+            container.className = 'flex justify-start fade-in';
+            const link = document.createElement('a');
+            link.href = url;
+            link.className = 'inline-flex items-center rounded-lg bg-emerald-700 px-4 py-3 text-sm font-semibold text-white hover:bg-emerald-800';
+            link.textContent = 'Open mental health check-in';
+            container.appendChild(link);
+            chatOutput.appendChild(container);
+            scrollToBottom();
+        }
+
+        function appendSuggestions(suggestions) {
+            document.getElementById('response-suggestions')?.remove();
+            if (!Array.isArray(suggestions) || suggestions.length === 0) return;
+            const container = document.createElement('div');
+            container.id = 'response-suggestions';
+            container.className = 'flex flex-wrap gap-2 fade-in';
+            suggestions.forEach(suggestion => {
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = 'rounded-lg border border-indigo-300 bg-white px-3 py-2 text-left text-sm font-semibold text-indigo-800 hover:bg-indigo-50';
+                button.textContent = suggestion;
+                button.addEventListener('click', () => {
+                    userInput.value = suggestion;
+                    container.remove();
+                    sendMessage();
+                });
+                container.appendChild(button);
+            });
+            chatOutput.appendChild(container);
+            scrollToBottom();
+        }
+
+        function appendEmergencyContacts(contacts) {
+            document.getElementById('emergency-contacts')?.remove();
+            if (!Array.isArray(contacts) || contacts.length === 0) return;
+            const container = document.createElement('div');
+            container.id = 'emergency-contacts';
+            container.className = 'grid gap-2 rounded-lg border-2 border-red-300 bg-red-50 p-3 fade-in';
+            contacts.forEach(contact => {
+                const phone = String(contact.phone || '').replace(/[^\d+]/g, '');
+                if (!phone) return;
+                const link = document.createElement('a');
+                link.href = `tel:${phone}`;
+                link.className = 'rounded-lg bg-white px-3 py-2 text-sm font-semibold text-red-800 border border-red-200 hover:bg-red-100';
+                link.textContent = `${contact.label}: ${contact.phone}`;
+                container.appendChild(link);
+            });
+            chatOutput.appendChild(container);
+            scrollToBottom();
+        }
+
+        function resetBookingUI() {
+            document.getElementById('booking-widget')?.remove();
+            document.getElementById('doctor-selection')?.remove();
+            interruptArea.classList.add('hidden');
+            waitingForResume = false;
+            requiredFieldType = null;
+            bookingState = {
+                selectedDoctor: null, selectedDate: null, selectedSlot: null,
+                patientName: '', patientEmail: '', patientPhone: ''
+            };
+        }
+
         function showDoctorSelection() {
             loadingIndicator.classList.remove('hidden');
     
@@ -360,7 +437,7 @@
         function appendDoctorsList(doctors) {
             document.getElementById('doctor-selection')?.remove();
             if (!doctors || doctors.length === 0) {
-                appendMessage("I'm sorry, there are no available doctors at the moment. Please try again later.", 'ai');
+                appendMessage("No clinicians are currently available for online booking. You can call or text Corner Health at 734-484-3600, or try again later.", 'ai');
                 return;
             }
 
@@ -374,17 +451,21 @@
                 card.className = "doctor-card";
                 card.onclick = () => selectDoctor(doc, card);
                 
-                const avatarUrl = escapeHtml(doc.profile_pic || `https://ui-avatars.com/api/?name=${encodeURIComponent(doc.name)}&background=6366f1&color=fff&bold=true`);
+                const avatarUrl = safeImageUrl(doc.profile_pic || '');
                 const doctorName = escapeHtml(doc.name);
                 const doctorSpecialty = escapeHtml(doc.specialty);
+                const initials = escapeHtml(String(doc.name || '').split(/\s+/).map(part => part[0]).join('').slice(0, 2).toUpperCase());
+                const avatar = avatarUrl
+                    ? `<img src="${escapeHtml(avatarUrl)}" alt="" class="w-full h-full object-cover">`
+                    : `<span class="w-full h-full bg-indigo-100 text-indigo-700 flex items-center justify-center font-semibold">${initials}</span>`;
                 
                 card.innerHTML = `
                     <div class="flex items-center gap-3">
                         <div class="w-14 h-14 rounded-full flex-shrink-0 overflow-hidden">
-                            <img src="${avatarUrl}" alt="Avatar" class="w-full h-full object-cover">
+                            ${avatar}
                         </div>
                         <div class="flex flex-col flex-grow">
-                            <span class="text-slate-900 font-semibold text-base">Dr. ${doctorName}</span>
+                            <span class="text-slate-900 font-semibold text-base">${doctorName}</span>
                             <span class="text-xs text-slate-500 font-medium">${doctorSpecialty}</span>
                         </div>
                         <div class="text-indigo-600">
@@ -409,7 +490,12 @@
             cardElement.classList.add('selected');
             bookingState.selectedDoctor = doctor;
             
-            setTimeout(() => showCalendar(), 300);
+            loadingIndicator.classList.remove('hidden');
+            ws.send(JSON.stringify({
+                type: 'select_doctor',
+                doctor_id: doctor.id,
+                hospital_id: hospitalId
+            }));
         }
 
         function showCalendar() {
@@ -668,7 +754,7 @@
                     </div>
                     
                     <div class="bg-slate-50 p-3 rounded-lg mb-4 space-y-1 text-xs">
-                        <p><span class="font-semibold text-slate-700">Doctor:</span> Dr. ${doctorName}</p>
+                        <p><span class="font-semibold text-slate-700">Clinician:</span> ${doctorName}</p>
                         <p><span class="font-semibold text-slate-700">Specialty:</span> ${doctorSpecialty}</p>
                         <p><span class="font-semibold text-slate-700">Date:</span> ${formattedDate}</p>
                         <p><span class="font-semibold text-slate-700">Time:</span> ${slotDisplay}</p>
@@ -748,7 +834,10 @@
                 
                 if (data.type === 'response') {
                     appendMessage(data.text, 'ai');
+                    appendSuggestions(data.suggestions);
+                    appendEmergencyContacts(data.emergency_contacts);
                     loadingIndicator.classList.add('hidden');
+                    if (data.booking_cancelled) resetBookingUI();
                     
                 } else if (data.type === 'show_doctor_selection') {
                     //console.log('Showing doctor selection');
@@ -765,6 +854,14 @@
                     loadingIndicator.classList.add('hidden');
                     //console.log('Received doctors list:', data.doctors);
                     appendDoctorsList(data.doctors);
+
+                } else if (data.type === 'show_calendar') {
+                    loadingIndicator.classList.add('hidden');
+                    if (bookingState.selectedDoctor) showCalendar();
+
+                } else if (data.type === 'show_assessment') {
+                    loadingIndicator.classList.add('hidden');
+                    appendAssessmentAction(data.url || '/assessment');
                     
                 } else if (data.type === 'availability_response') {
                     showTimeSlots(data.slots);
@@ -930,6 +1027,13 @@
         }
 
         function resumeSafetyGuidance(continueBooking) {
+            if (!continueBooking) {
+                ws.send(JSON.stringify({ type: 'cancel_booking' }));
+                appendMessage('Stop booking.', 'user');
+                resetBookingUI();
+                loadingIndicator.classList.remove('hidden');
+                return;
+            }
             ws.send(JSON.stringify({
                 type: 'resume',
                 resume_value: { unsafe_booking_acknowledgement: continueBooking }
@@ -941,10 +1045,19 @@
         }
 
         function sendMessage() {
-            if (waitingForResume) return handleResume();
-            
             const msg = userInput.value.trim();
             if (!msg) return;
+
+            const cancelsBooking = /\b(?:(?:i(?:'m| am)?\s+)?not\s+(?:interested\s+in\s+)?(?:booking|scheduling)|(?:i\s+)?(?:do not|don't|dont|no longer|never)\s+(?:(?:want|need|plan|intend)\s+to\s+)?(?:book|schedule|continue(?:\s+booking)?)|(?:i(?:'m| am)?\s+)?not\s+(?:interested\s+in\s+)?(?:seeing|meeting|talking\s+to)\s+(?:a|the)\s+(?:doctor|therapist|counselor|clinician)|(?:i\s+)?(?:do not|don't|dont)\s+(?:want|need)\s+(?:an?\s+)?(?:appointment|session)|(?:no|not)\s+(?:appointment|booking)|(?:stop|cancel)\s+(?:the\s+)?booking)\b/i.test(msg);
+            if (waitingForResume && cancelsBooking) {
+                ws.send(JSON.stringify({ type: 'cancel_booking' }));
+                appendMessage(msg, 'user');
+                userInput.value = '';
+                resetBookingUI();
+                loadingIndicator.classList.remove('hidden');
+                return;
+            }
+            if (waitingForResume) return handleResume();
             
             ws.send(JSON.stringify({ 
                 query: msg,

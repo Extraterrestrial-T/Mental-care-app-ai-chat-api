@@ -5,6 +5,7 @@ from .firebase_service import firebase_service
 from .scheduling.base import CalendarAuthorizationError
 from .scheduling import get_calendar_provider
 from app.config import settings
+from .doctor_visibility import is_public_bookable_profile
 
 
 class DoctorService:
@@ -21,7 +22,6 @@ class DoctorService:
 
     @staticmethod
     def _safe_doctor(doctor: Dict[str, Any]) -> Dict[str, Any]:
-        provider = get_calendar_provider(doctor)
         status = doctor.get("calendar_status", "unknown")
         last_checked = doctor.get("calendar_last_checked_at")
         if isinstance(last_checked, datetime):
@@ -33,6 +33,10 @@ class DoctorService:
             "reauthorization_required",
             "temporarily_unavailable",
         }
+        provider_name = doctor.get("calendar_provider")
+        if not provider_name and doctor.get("token") and doctor.get("refresh_token"):
+            # Legacy Google records predate the explicit provider field.
+            provider_name = "google"
         return {
             "id": doctor.get("id"),
             "name": doctor.get("name"),
@@ -41,9 +45,14 @@ class DoctorService:
             "profile_pic": doctor.get("profile_pic"),
             "calendar_connected": connected,
             "calendar_status": status,
-            "calendar_provider": doctor.get("calendar_provider") or provider.provider_name,
+            "calendar_provider": provider_name,
             "calendar_last_checked_at": last_checked,
             "linked_at": linked_at,
+            "profile_url": doctor.get("profile_url"),
+            "bio": doctor.get("bio"),
+            "published_on_website": doctor.get("published_on_website") is True,
+            "accepting_online_bookings": doctor.get("accepting_online_bookings") is True,
+            "is_demo": doctor.get("is_demo") is True,
         }
 
     @staticmethod
@@ -66,16 +75,18 @@ class DoctorService:
 
         provider = get_calendar_provider(doctor)
         if not provider.is_connected(doctor):
+            now = datetime.now(timezone.utc)
+            updates = {
+                "calendar_connected": False,
+                "calendar_status": "reauthorization_required",
+                "calendar_connection_error": "missing_or_expired_credentials",
+                "calendar_last_checked_at": now,
+            }
             await firebase_service.save_doctor_credentials(
                 doctor_id,
-                {
-                    "calendar_connected": False,
-                    "calendar_status": "reauthorization_required",
-                    "calendar_connection_error": "missing_or_expired_credentials",
-                    "calendar_last_checked_at": datetime.now(timezone.utc),
-                },
+                updates,
             )
-            doctor.update({"calendar_connected": False, "calendar_status": "reauthorization_required"})
+            doctor.update(updates)
             return False
 
         if (
@@ -133,6 +144,7 @@ class DoctorService:
 
     async def list_bookable_doctors(self, hospital_id: str) -> List[Dict[str, Any]]:
         doctors = await firebase_service.get_doctors_by_hospital(hospital_id)
+        doctors = [doctor for doctor in doctors if is_public_bookable_profile(doctor)]
 
         semaphore = asyncio.Semaphore(5)
 
@@ -152,6 +164,14 @@ class DoctorService:
     async def list_hospital_doctors(self, hospital_id: str) -> List[Dict[str, Any]]:
         doctors = await firebase_service.get_doctors_by_hospital(hospital_id)
         return [self._safe_doctor(doctor) for doctor in doctors]
+
+    async def refresh_calendar_connection(self, doctor_id: str) -> Optional[Dict[str, Any]]:
+        """Force one authenticated clinician's calendar health check."""
+        doctor = await firebase_service.get_doctor(doctor_id)
+        if not doctor:
+            return None
+        await self.verify_calendar_connection(doctor, force=True)
+        return self._safe_doctor(doctor)
     
     async def get_doctor_with_calendar(self, doctor_id: str) -> Optional[Dict[str, Any]]:
         """Get doctor profile with calendar provider connection status."""
@@ -340,16 +360,7 @@ class DoctorService:
                     upcoming.append(appointment)
         
         return {
-            "doctor": {
-                "id": doctor_id,
-                "name": doctor.get("name"),
-                "email": doctor.get("email"),
-                "specialty": doctor.get("specialty"),
-                "profile_pic": doctor.get("profile_pic"),
-                "calendar_connected": doctor.get("calendar_connected"),
-                "calendar_status": doctor.get("calendar_status", "unknown"),
-                "calendar_provider": doctor.get("calendar_provider"),
-            },
+            "doctor": self._safe_doctor(doctor),
             "appointments": {
                 "upcoming": upcoming[:10],  # Next 10 appointments
                 "total": len(firestore_appointments),

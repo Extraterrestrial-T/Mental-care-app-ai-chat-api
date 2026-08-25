@@ -74,6 +74,12 @@ class Settings(BaseSettings):
     RAG_INDEX_DIR: str = os.getenv("RAG_INDEX_DIR", "app/agent/vector_index")
     RAG_SOURCE_URL: str = os.getenv("RAG_SOURCE_URL", "https://cornerhealth.org")
     CRISIS_SUPPORT_LINE: str = os.getenv("CRISIS_SUPPORT_LINE", "")
+    EMERGENCY_PHONE: str = os.getenv("EMERGENCY_PHONE", "911")
+    CRISIS_LIFELINE_PHONE: str = os.getenv("CRISIS_LIFELINE_PHONE", "988")
+    CLINIC_PHONE: str = os.getenv("CLINIC_PHONE", "734-484-3600")
+    PSYCHIATRIC_EMERGENCY_PHONE: str = os.getenv(
+        "PSYCHIATRIC_EMERGENCY_PHONE", "734-936-5900"
+    )
     MIN_ELIGIBLE_AGE: int = int(os.getenv("MIN_ELIGIBLE_AGE", "12"))
     MAX_ELIGIBLE_AGE: int = int(os.getenv("MAX_ELIGIBLE_AGE", "25"))
     DEFAULT_HOSPITAL_ID: str = os.getenv(

@@ -95,6 +95,22 @@ class MicrosoftCalendarTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(doctor["refresh_token"], "rotated-refresh-token")
         self.assertGreater(doctor["expires_at"], 0)
 
+    async def test_missing_expiry_refreshes_legacy_token(self):
+        provider = MicrosoftGraphCalendarProvider()
+        doctor = {
+            "token": "unverified-access-token",
+            "refresh_token": "legacy-refresh-token",
+        }
+
+        with patch(
+            "app.services.scheduling.microsoft_graph.httpx.AsyncClient",
+            return_value=_Client(),
+        ):
+            token = await provider._access_token(doctor)
+
+        self.assertEqual(token, "new-access-token")
+        self.assertEqual(doctor["refresh_token"], "rotated-refresh-token")
+
     async def test_validation_converts_graph_401_to_reauthorization_error(self):
         provider = MicrosoftGraphCalendarProvider()
         doctor = {

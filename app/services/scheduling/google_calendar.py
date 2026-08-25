@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 from zoneinfo import ZoneInfo
 
@@ -30,6 +30,15 @@ class GoogleCalendarProvider(CalendarProvider):
         )
 
     def _build_credentials(self, token_data: Dict[str, Any]) -> Credentials:
+        expiry = token_data.get("token_expiry")
+        if isinstance(expiry, str):
+            try:
+                expiry = datetime.fromisoformat(expiry.replace("Z", "+00:00"))
+            except ValueError:
+                expiry = None
+        if isinstance(expiry, datetime) and expiry.tzinfo is not None:
+            # google-auth currently compares against a naive UTC timestamp.
+            expiry = expiry.astimezone(timezone.utc).replace(tzinfo=None)
         return Credentials(
             token=token_data.get("token"),
             refresh_token=token_data.get("refresh_token"),
@@ -37,6 +46,7 @@ class GoogleCalendarProvider(CalendarProvider):
             client_id=token_data.get("client_id"),
             client_secret=token_data.get("client_secret"),
             scopes=token_data.get("scopes"),
+            expiry=expiry,
         )
 
     async def validate_connection(self, token_data: Dict[str, Any]) -> None:

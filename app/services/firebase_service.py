@@ -77,7 +77,10 @@ class FirebaseService:
         try:
             doc = self.db.collection("doctors").document(doctor_id).get()
             if doc.exists:
-                return doc.to_dict()
+                doctor = doc.to_dict()
+                # Older records may not duplicate the Firestore document ID.
+                doctor["id"] = doctor_id
+                return doctor
             return None
         except Exception as e:
             print(f"Error getting doctor: {e}")
@@ -209,6 +212,19 @@ class FirebaseService:
         except Exception as e:
             print(f"Error saving appointment: {e}")
             return None
+
+    async def save_mental_health_assessment(
+        self, assessment_id: str, assessment_data: Dict[str, Any]
+    ) -> bool:
+        """Persist a versioned screening record for authorized clinical review."""
+        try:
+            self.db.collection("mental_health_assessments").document(assessment_id).set(
+                assessment_data
+            )
+            return True
+        except Exception as e:
+            print(f"Error saving mental health assessment {assessment_id}: {type(e).__name__}")
+            return False
     
     async def get_appointment(self, appointment_id: str) -> Optional[Dict[str, Any]]:
         """Get appointment by ID"""
